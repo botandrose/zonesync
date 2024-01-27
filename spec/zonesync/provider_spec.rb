@@ -1,10 +1,12 @@
 require 'rspec'
 require 'zonesync'
+require 'yaml'
 
-describe Zonesync do
+describe Zonesync::Provider do
   describe '.call' do
     let(:sample_zone_file_path) { './spec/fixtures/example.com' }
-    let(:records) { Zonesync.call(zonefile: sample_zone_file_path) }
+    let(:credentials) { { provider: "Filesystem", path: sample_zone_file_path } }
+    let(:records) { described_class.new(credentials).diffable_records }
 
     context 'types' do
       subject { records.map(&:class) }
