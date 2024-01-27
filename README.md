@@ -89,7 +89,7 @@ Add the following lines to your `Rakefile`:
 ```ruby
 require 'zonesync/rake_task'
 
-ZoneSync::RakeTask.new(zonefile: 'hostfile.txt', credentials: 'provider.yml')
+Zonesync::RakeTask.new(zonefile: 'hostfile.txt', credentials: 'provider.yml')
 ```
 
 You can then run `rake zonesync`.

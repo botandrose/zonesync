@@ -1,6 +1,6 @@
 require 'dns/zonefile'
 
-module ZoneSync
+module Zonesync
   class CLI
     class << self
       def execute(args)
