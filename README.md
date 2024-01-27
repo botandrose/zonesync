@@ -52,12 +52,12 @@ mail3         A     192.0.2.5
 
 We need to tell `zonesync` about our DNS host by building a small YAML file. The structure of this file will depend on your DNS host, so here are some examples:
 
-**DNSimple**
+**Cloudflare**
 
 ```
-provider: DNSimple
-dnsimple_email: <DNSIMPLE_EMAIL>
-dnsimple_password: <DNSIMPLE_PASSWORD>
+provider: Cloudflare
+email: <CLOUDFLARE_EMAIL>
+key: <CLOUDFLARE_API_KEY>
 ```
 
 **Route 53**
@@ -68,28 +68,12 @@ aws_access_key_id: <AWS_ACCESS_KEY_ID>
 aws_secret_access_key: <AWS_SECRET_ACCESS_KEY>
 ```
 
-> Note: `zonesync` uses `fog` to support a range of DNS hosts. See [fog's DNS documentation](http://fog.io/dns/) or [the `Fog::DNS` source code](https://github.com/fog/fog/blob/master/lib/fog/dns.rb) for help with other DNS hosts.
-
 ### Usage
 
-Assuming your zone file lives in `hostfile.txt` and your DNS provider credentials are configured in `provider.yml`, there are two ways to invoke `zonesync`:
-
-#### CLI
-
-```
-$ zonesync -z hostfile.txt -p provider.yml
-
-Synced <n> records for <domain> to <provider>
-```
-
-#### Rake task
-
-Add the following lines to your `Rakefile`:
+Assuming your zone file lives in `hostfile.txt` and your DNS provider credentials are configured in `provider.yml`:
 
 ```ruby
-require 'zonesync/rake_task'
-
-Zonesync::RakeTask.new(zonefile: 'hostfile.txt', credentials: 'provider.yml')
+require 'zonesync'
+Zonesync.call(zonefile: 'hostfile.txt', credentials: YAML.load('provider.yml'))
 ```
 
-You can then run `rake zonesync`.

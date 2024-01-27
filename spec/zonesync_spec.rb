@@ -1,10 +1,10 @@
 require 'rspec'
-require 'zonesync/cli'
+require 'zonesync'
 
-describe Zonesync::CLI do
-  describe '.execute' do
+describe Zonesync do
+  describe '.call' do
     let(:sample_zone_file_path) { './spec/fixtures/example.com' }
-    let(:records) { Zonesync::CLI.execute([sample_zone_file_path]) }
+    let(:records) { Zonesync.call(zonefile: sample_zone_file_path) }
 
     context 'types' do
       subject { records.map(&:class) }
