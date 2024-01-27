@@ -21,3 +21,4 @@ tmp
 mkmf.log
 .direnv/
 .ruby-version
+Gemfile.lock
