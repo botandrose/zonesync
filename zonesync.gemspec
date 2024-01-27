@@ -18,5 +18,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "dns-zonefile", "~>1.0"
+  spec.add_dependency "diff-lcs", "~>1.4"
   spec.add_development_dependency "rspec"
 end

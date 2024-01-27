@@ -1,5 +1,23 @@
 require "dns/zonefile"
 require "net/http"
+require "diff/lcs"
+
+module DNS
+  module Zonefile
+    class Record
+      def == other
+        to_h == other.to_h
+      end
+
+      def to_h
+        (instance_variables - [:@vars]).reduce({ class: self.class }) do |hash, key|
+          new_key = key.to_s.sub("@","").to_sym
+          hash.merge new_key => instance_variable_get(key)
+        end
+      end
+    end
+  end
+end
 
 module Zonesync
   def self.call zonefile:, credentials:
@@ -21,7 +39,17 @@ module Zonesync
     end
 
     def call
-      []
+      changes = ::Diff::LCS.sdiff(from.diffable_records, to.diffable_records)
+      changes.map do |change|
+        case change.action
+        when "-"
+          [:remove, change.old_element.to_h]
+        when "!"
+          [:change, [change.old_element.to_h, change.new_element.to_h]]
+        when "+"
+          [:add, change.new_element.to_h]
+        end
+      end.compact
     end
   end
 
@@ -29,6 +57,10 @@ module Zonesync
     def zonefile
       contents = send(credentials[:provider])
       DNS::Zonefile.load(contents)
+    end
+
+    def String
+      credentials[:string]
     end
 
     def Filesystem
@@ -43,7 +75,7 @@ module Zonesync
         --header "X-Auth-Key: #{credentials.key}"`
     end
 
-    def apply op
+    def apply ops
     end
 
     def diffable_records
