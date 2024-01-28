@@ -1,4 +1,6 @@
-# zonesync
+# Zonesync
+
+[![CI Status](https://github.com/botandrose/zonesync/workflows/CI/badge.svg?branch=master)](https://github.com/botandrose/zonesync/actions?query=workflow%3ACI+branch%3Amaster)
 
 Sync your DNS host with your DNS zone file, making it easy to version your zone file and sync changes.
 
