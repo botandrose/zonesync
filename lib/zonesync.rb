@@ -1,23 +1,5 @@
-require "dns/zonefile"
 require "zonesync/provider"
 require "zonesync/diff"
-
-module DNS
-  module Zonefile
-    class Record
-      def == other
-        to_h == other.to_h
-      end
-
-      def to_h
-        (instance_variables - [:@vars, :@klass]).reduce({ type: self.class.to_s.split("::").last }) do |hash, key|
-          new_key = key.to_s.sub("@","").to_sym
-          hash.merge new_key => instance_variable_get(key)
-        end
-      end
-    end
-  end
-end
 
 module Zonesync
   def self.call zonefile:, credentials:

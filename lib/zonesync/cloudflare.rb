@@ -14,24 +14,34 @@ module Zonesync
     def change old_record, new_record
       id = records.fetch(old_record)
       patch("/#{id}", {
-        content: new_record[:address],
-        name: new_record[:host],
+        name: new_record[:name],
         type: new_record[:type],
         ttl: new_record[:ttl],
+        content: new_record[:rdata],
       })
     end
 
     def add record
       post(nil, {
-        content: record[:address],
-        name: record[:host],
+        name: record[:name],
         type: record[:type],
         ttl: record[:ttl],
+        content: record[:rdata],
       })
     end
 
     def records
-      @records ||= Records.load(get(nil))
+      @records ||= begin
+        response = JSON.parse(get(nil))
+        response["result"].reduce({}) do |map, attrs|
+          map.merge attrs["id"] => Record.new(
+            attrs["name"],
+            attrs["type"],
+            attrs["ttl"].to_i,
+            attrs["content"],
+          ).to_h
+        end.invert
+      end
     end
 
     private
@@ -64,19 +74,6 @@ module Zonesync
         http.request(request, data)
       end
       result.body
-    end
-
-    class Records
-      def self.load json
-        JSON.parse(json)["result"].reduce({}) do |map, attrs|
-          map.merge attrs["id"] => {
-            type: attrs["type"],
-            host: attrs["name"],
-            ttl: attrs["ttl"].to_i,
-            address: attrs["content"],
-          }
-        end.invert
-      end
     end
   end
 end

@@ -8,19 +8,19 @@ describe Zonesync::Provider do
     let(:records) { described_class.new(credentials).diffable_records }
 
     context 'types' do
-      subject { records.map(&:class) }
+      subject { records.map(&:type) }
 
-      it { is_expected.to eq [
-        DNS::Zonefile::MX, DNS::Zonefile::MX, DNS::Zonefile::MX,
-        DNS::Zonefile::A, DNS::Zonefile::AAAA,
-        DNS::Zonefile::A, DNS::Zonefile::AAAA,
-        DNS::Zonefile::CNAME, DNS::Zonefile::CNAME,
-        DNS::Zonefile::A, DNS::Zonefile::A, DNS::Zonefile::A,
+      it { is_expected.to eq %w[
+        MX MX MX
+        A AAAA
+        A AAAA
+        CNAME CNAME
+        A A A
       ] }
     end
 
     context 'hosts' do
-      subject { records.map(&:host) }
+      subject { records.map(&:name) }
 
       it { is_expected.to eq [
         'example.com.', 'example.com.', 'example.com.',
@@ -32,16 +32,7 @@ describe Zonesync::Provider do
     end
 
     context 'addresses' do
-      let(:method_for) {
-        {
-          DNS::Zonefile::A => :address,
-          DNS::Zonefile::AAAA => :address,
-          DNS::Zonefile::CNAME => :domainname,
-          DNS::Zonefile::MX => :domainname,
-        }
-      }
-
-      subject { records.map { |record| record.public_send(method_for[record.class]) } }
+      subject { records.map(&:rdata) }
 
       it { is_expected.to eq [
         'mail.example.com.', 'mail2.example.com.', 'mail3.example.com.',

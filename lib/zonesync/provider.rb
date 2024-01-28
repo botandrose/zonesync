@@ -1,4 +1,5 @@
 require "dns/zonefile"
+require "zonesync/record"
 
 module Zonesync
   class Provider < Struct.new(:credentials)
@@ -14,16 +15,26 @@ module Zonesync
     end
 
     def diffable_records
-      diffable_record_types = [
-        DNS::Zonefile::A,
-        DNS::Zonefile::AAAA,
-        DNS::Zonefile::CNAME,
-        DNS::Zonefile::MX,
-        DNS::Zonefile::TXT,
-      ]
-      zonefile.records.select do |record|
-        diffable_record_types.include?(record.class)
-      end
+      zonefile.records.map do |record|
+        rdata = case record
+        when DNS::Zonefile::A, DNS::Zonefile::AAAA
+          record.address
+        when DNS::Zonefile::CNAME
+          record.domainname
+        when DNS::Zonefile::MX
+          record.domainname
+        when DNS::Zonefile::TXT
+          record.data
+        else
+          next
+        end
+        Record.new(
+          record.host,
+          record.class.name.split("::").last,
+          record.ttl,
+          rdata,
+        )
+      end.compact
     end
   end
 
