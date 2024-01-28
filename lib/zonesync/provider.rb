@@ -12,7 +12,7 @@ module Zonesync
         Record.from_dns_zonefile_record(record)
       end.select do |record|
         %w[A AAAA CNAME MX TXT SPF NAPTR PTR].include?(record.type)
-      end
+      end.sort
     end
 
     def read record

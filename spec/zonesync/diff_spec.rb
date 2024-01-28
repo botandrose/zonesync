@@ -49,6 +49,21 @@ describe Zonesync::Diff do
       ]])
     end
 
+    it "ignores record reordering" do
+      from = build(<<~RECORDS)
+        @    A 10.0.0.1
+        www  A 10.0.0.1
+        test A 10.0.0.1
+      RECORDS
+      to = build(<<~RECORDS)
+        @    A 10.0.0.1
+        test A 10.0.0.1
+        www  A 10.0.0.1
+      RECORDS
+      ops = described_class.call(from: from, to: to)
+      expect(ops).to eq([])
+    end
+
     it "detects removed records" do
       from = build(<<~RECORDS)
         @             A     192.0.2.1             ; IPv4 address for example.com

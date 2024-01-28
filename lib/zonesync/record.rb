@@ -25,6 +25,18 @@ module Zonesync
         rdata,
       )
     end
+
+    def <=> other
+      to_sortable <=> other.to_sortable
+    end
+
+    def to_sortable
+      [type, name, rdata, ttl]
+    end
+
+    def to_s
+      values.join(" ")
+    end
   end
 end
 

@@ -5,42 +5,23 @@ describe Zonesync::Provider do
   describe '.call' do
     let(:sample_zone_file_path) { './spec/fixtures/example.com' }
     let(:credentials) { { provider: "Filesystem", path: sample_zone_file_path } }
-    let(:records) { described_class.from(credentials).diffable_records }
+    subject { described_class.from(credentials) }
 
-    context 'types' do
-      subject { records.map(&:type) }
-
-      it { is_expected.to eq %w[
-        MX MX MX
-        A AAAA
-        A AAAA
-        CNAME CNAME
-        A A A
-      ] }
-    end
-
-    context 'hosts' do
-      subject { records.map(&:name) }
-
-      it { is_expected.to eq [
-        'example.com.', 'example.com.', 'example.com.',
-        'example.com.', 'example.com.',
-        'ns.example.com.', 'ns.example.com.',
-        'www.example.com.', 'wwwtest.example.com.',
-        'mail.example.com.', 'mail2.example.com.', 'mail3.example.com.',
-      ] }
-    end
-
-    context 'addresses' do
-      subject { records.map(&:rdata) }
-
-      it { is_expected.to eq [
-        '10 mail.example.com.', '20 mail2.example.com.', '50 mail3.example.com.',
-        '192.0.2.1', '2001:db8:10::1',
-        '192.0.2.2', '2001:db8:10::2',
-        'example.com.', 'www.example.com.',
-        '192.0.2.3', '192.0.2.4', '192.0.2.5',
-      ] }
+    it "#diffable_records" do
+      expect(subject.diffable_records.map(&:to_s)).to eq([
+        "example.com. A 3 192.0.2.1",
+        "mail.example.com. A 3 192.0.2.3",
+        "mail2.example.com. A 3 192.0.2.4",
+        "mail3.example.com. A 3 192.0.2.5",
+        "ns.example.com. A 3 192.0.2.2",
+        "example.com. AAAA 3 2001:db8:10::1",
+        "ns.example.com. AAAA 3 2001:db8:10::2",
+        "www.example.com. CNAME 3 example.com.",
+        "wwwtest.example.com. CNAME 3 www.example.com.",
+        "example.com. MX 3 10 mail.example.com.",
+        "example.com. MX 3 20 mail2.example.com.",
+        "example.com. MX 3 50 mail3.example.com.",
+      ])
     end
   end
 end
