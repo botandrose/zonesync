@@ -87,7 +87,7 @@ describe Zonesync::Cloudflare do
         JSON
 
       subject.remove({
-        name: "example.com",
+        name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
@@ -100,7 +100,7 @@ describe Zonesync::Cloudflare do
       stub_request(:patch, "https://api.cloudflare.com/client/v4/zones/1234/dns_records/5678")
         .with({
           body: JSON.dump({
-            "name": "www.example.com",
+            "name": "www.example.com.",
             "type": "A",
             "ttl": 7200,
             "content": "198.51.100.4",
@@ -119,12 +119,12 @@ describe Zonesync::Cloudflare do
         JSON
 
       subject.change({
-        name: "example.com",
+        name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
       },{
-        name: "www.example.com",
+        name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
@@ -137,7 +137,7 @@ describe Zonesync::Cloudflare do
       stub_request(:post, "https://api.cloudflare.com/client/v4/zones/1234/dns_records")
         .with({
           body: JSON.dump({
-            "name": "example.com",
+            "name": "example.com.",
             "type": "A",
             "ttl": 3600,
             "content": "198.51.100.4",
@@ -156,7 +156,7 @@ describe Zonesync::Cloudflare do
         JSON
 
       subject.add({
-        name: "example.com",
+        name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",

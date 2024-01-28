@@ -36,7 +36,7 @@ module Zonesync
         response = http.get(nil)
         response["result"].reduce({}) do |map, attrs|
           map.merge attrs["id"] => Record.new(
-            attrs["name"],
+            attrs["name"] + ".", # normalize to trailing period
             attrs["type"],
             attrs["ttl"].to_i,
             attrs["content"],
