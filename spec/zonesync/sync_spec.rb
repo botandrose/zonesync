@@ -22,7 +22,10 @@ describe Zonesync::Sync do
   RECORDS
 
   subject do
-    described_class.new("spec/fixtures/example.com", { provider: "Memory", string: records })
+    described_class.new(
+      { provider: "Filesystem", path: "spec/fixtures/example.com" },
+      { provider: "Memory", string: records },
+    )
   end
 
   it "works" do

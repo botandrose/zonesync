@@ -3,17 +3,17 @@ require "zonesync/diff"
 
 module Zonesync
   def self.call zonefile:, credentials:
-    Sync.new(zonefile, credentials).call
+    Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call
   end
 
-  class Sync < Struct.new(:zonefile, :credentials)
+  class Sync < Struct.new(:source, :destination)
     def call
-      local = Provider.from({ provider: "Filesystem", path: zonefile })
-      remote = Provider.from(credentials)
-      operations = Diff.call(from: remote, to: local)
+      source = Provider.from(self.source)
+      destination = Provider.from(self.destination)
+      operations = Diff.call(from: destination, to: source)
       operations.each do |method, args|
         puts [method, args].inspect
-        remote.send(method, args)
+        destination.send(method, args)
       end
     end
   end
