@@ -1,3 +1,5 @@
+require "net/http"
+
 module Zonesync
   class Cloudflare < Provider
     def read
