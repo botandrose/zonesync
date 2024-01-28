@@ -32,7 +32,7 @@ module Zonesync
 
     def records
       @records ||= begin
-        response = JSON.parse(get(nil))
+        response = get(nil)
         response["result"].reduce({}) do |map, attrs|
           map.merge attrs["id"] => Record.new(
             attrs["name"],
@@ -69,11 +69,16 @@ module Zonesync
       request["X-Auth-Email"] = credentials[:email]
       request["X-Auth-Key"] = credentials[:key]
 
-      result = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
         data = body ? JSON.dump(body) : nil
         http.request(request, data)
       end
-      result.body
+      raise response.body unless response.code == "200"
+      if response["Content-Type"].include?("application/json")
+        JSON.parse(response.body)
+      else
+        response.body
+      end
     end
   end
 end

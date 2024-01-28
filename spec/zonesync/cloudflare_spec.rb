@@ -15,7 +15,7 @@ describe Zonesync::Cloudflare do
           "X-Auth-Key" => "abc123",
         }
       })
-      .to_return(status: 200, body: <<~JSON, headers: {})
+      .to_return(status: 200, body: <<~JSON, headers: { "Content-Type" => "application/json" })
         {
           "errors": [],
           "messages": [],
@@ -62,7 +62,7 @@ describe Zonesync::Cloudflare do
            "X-Auth-Key"   => "abc123",
           }
         })
-        .to_return(status: 200, body: "dummy", headers: {})
+        .to_return(status: 200, body: "dummy", headers: { "Content-Type" => "application/octet-stream; charset=UTF-8" })
 
       expect(subject.read).to eq("dummy")
     end
@@ -78,7 +78,7 @@ describe Zonesync::Cloudflare do
            "X-Auth-Key"   => "abc123",
           }
         })
-        .to_return(status: 200, body: <<~JSON, headers: {})
+        .to_return(status: 200, body: <<~JSON, headers: { "Content-Type" => "application/json" })
           {
             "result": {
               "id": "5678"
@@ -111,7 +111,7 @@ describe Zonesync::Cloudflare do
            "X-Auth-Key"   => "abc123",
           }
         })
-        .to_return(status: 200, body: <<~JSON, headers: {})
+        .to_return(status: 200, body: <<~JSON, headers: { "Content-Type" => "application/json" })
           {
             "result": {},
             "success": true
@@ -148,7 +148,7 @@ describe Zonesync::Cloudflare do
            "X-Auth-Key"   => "abc123",
           }
         })
-        .to_return(status: 200, body: <<~JSON, headers: {})
+        .to_return(status: 200, body: <<~JSON, headers: { "Content-Type" => "application/json" })
           {
             "result": {},
             "success": true
