@@ -5,7 +5,7 @@ describe Zonesync::Provider do
   describe '.call' do
     let(:sample_zone_file_path) { './spec/fixtures/example.com' }
     let(:credentials) { { provider: "Filesystem", path: sample_zone_file_path } }
-    let(:records) { described_class.new(credentials).diffable_records }
+    let(:records) { described_class.from(credentials).diffable_records }
 
     context 'types' do
       subject { records.map(&:type) }
