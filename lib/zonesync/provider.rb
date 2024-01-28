@@ -8,11 +8,19 @@ module Zonesync
     end
 
     def diffable_records
-      DNS::Zonefile.load(read).records.map do |record|
+      zonefile.records.map do |record|
         Record.from_dns_zonefile_record(record)
       end.select do |record|
         %w[A AAAA CNAME MX TXT SPF NAPTR PTR].include?(record.type)
       end.sort
+    end
+
+    private def zonefile
+      body = read
+      if body !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
+        body.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
+      end
+      DNS::Zonefile.load(body)
     end
 
     def read record
