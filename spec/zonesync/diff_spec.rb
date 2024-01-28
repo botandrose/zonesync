@@ -14,10 +14,9 @@ describe Zonesync::Diff do
       expect(ops).to eq([[
         :add,
         {
-          class: DNS::Zonefile::A,
+          type: "A",
           host: "www.example.com.",
           ttl: 3600,
-          klass: "IN",
           address: "192.0.2.1",
         }
       ]])
@@ -35,17 +34,15 @@ describe Zonesync::Diff do
         :change,
         [
           {
-            class: DNS::Zonefile::A,
+            type: "A",
             host: "example.com.",
             ttl: 3600,
-            klass: "IN",
             address: "192.0.2.1",
           },
           {
-            class: DNS::Zonefile::A,
+            type: "A",
             host: "example.com.",
             ttl: 3600,
-            klass: "IN",
             address: "10.0.0.1",
           },
         ]
@@ -64,10 +61,9 @@ describe Zonesync::Diff do
       expect(ops).to eq([[
         :remove,
         {
-          class: DNS::Zonefile::A,
+          type: "A",
           host: "www.example.com.",
           ttl: 3600,
-          klass: "IN",
           address: "192.0.2.1",
         }
       ]])
@@ -76,7 +72,7 @@ describe Zonesync::Diff do
 end
 
 def build string
-  Zonesync::Provider.new({ provider: "String", string: <<~STRING })
+  Zonesync::Provider.new({ provider: "Memory", string: <<~STRING })
     $ORIGIN example.com.     ; designates the start of this zone file in the namespace
     $TTL 3600                ; default expiration time of all resource records without their own TTL value
     example.com.  IN  SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )

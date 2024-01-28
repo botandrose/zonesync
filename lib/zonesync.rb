@@ -10,7 +10,7 @@ module DNS
       end
 
       def to_h
-        (instance_variables - [:@vars]).reduce({ class: self.class }) do |hash, key|
+        (instance_variables - [:@vars, :@klass]).reduce({ type: self.class.to_s.split("::").last }) do |hash, key|
           new_key = key.to_s.sub("@","").to_sym
           hash.merge new_key => instance_variable_get(key)
         end
@@ -29,7 +29,7 @@ module Zonesync
       local = Provider.new({ provider: "Filesystem", path: zonefile })
       remote = Provider.new(credentials)
       operations = Diff.call(from: remote, to: local)
-      operations.each { |operation| remote.apply(operation) }
+      operations.each { |method, args| puts [method, *args].inspect }
     end
   end
 
@@ -55,37 +55,65 @@ module Zonesync
 
   class Provider < Struct.new(:credentials)
     def zonefile
-      contents = send(credentials[:provider])
-      DNS::Zonefile.load(contents)
+      @adapter = Zonesync.const_get(credentials[:provider]).new(credentials)
+      DNS::Zonefile.load(@adapter.read)
     end
 
-    def String
-      credentials[:string]
-    end
-
-    def Filesystem
-      File.read(credentials[:path])
-    end
-
-    def Cloudflare
-      `curl --request GET \\
-        --url "https://api.cloudflare.com/client/v4/zones/#{credentials.zone_id}/dns_records/export" \\
-        --header "Content-Type: application/json" \\
-        --header "X-Auth-Email: #{credentials.email}" \\
-        --header "X-Auth-Key: #{credentials.key}"`
-    end
-
-    def apply ops
+    %i[read remove change add].each do |method|
+      define_method method do |*args|
+        @adapter.send(method, *args)
+      end
     end
 
     def diffable_records
-      zonefile.records.select { |record| record_types.include? record.class }
+      diffable_record_types = [
+        DNS::Zonefile::A,
+        DNS::Zonefile::AAAA,
+        DNS::Zonefile::CNAME,
+        DNS::Zonefile::MX,
+        DNS::Zonefile::TXT,
+      ]
+      zonefile.records.select do |record|
+        diffable_record_types.include?(record.class)
+      end
+    end
+  end
+
+  require "zonesync/cloudflare"
+
+  class Memory < Provider
+    def read
+      credentials[:string]
     end
 
-    private
+    def remove record
+      raise NotImplementedError
+    end
 
-    def record_types
-      [DNS::Zonefile::A, DNS::Zonefile::AAAA, DNS::Zonefile::CNAME, DNS::Zonefile::MX]
+    def change old_record, new_record
+      raise NotImplementedError
+    end
+
+    def add record
+      raise NotImplementedError
+    end
+  end
+
+  class Filesystem < Provider
+    def read
+      File.read(credentials[:path])
+    end
+
+    def remove record
+      raise NotImplementedError
+    end
+
+    def change old_record, new_record
+      raise NotImplementedError
+    end
+
+    def add record
+      raise NotImplementedError
     end
   end
 end
