@@ -9,25 +9,10 @@ module Zonesync
 
     def diffable_records
       DNS::Zonefile.load(read).records.map do |record|
-        rdata = case record
-        when DNS::Zonefile::A, DNS::Zonefile::AAAA
-          record.address
-        when DNS::Zonefile::CNAME
-          record.domainname
-        when DNS::Zonefile::MX
-          record.domainname
-        when DNS::Zonefile::TXT
-          record.data
-        else
-          next
-        end
-        Record.new(
-          record.host,
-          record.class.name.split("::").last,
-          record.ttl,
-          rdata,
-        )
-      end.compact
+        Record.from_dns_zonefile_record(record)
+      end.select do |record|
+        %w[A AAAA CNAME MX TXT SPF NAPTR PTR].include?(record.type)
+      end
     end
 
     def read record

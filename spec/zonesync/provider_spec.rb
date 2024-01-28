@@ -35,7 +35,7 @@ describe Zonesync::Provider do
       subject { records.map(&:rdata) }
 
       it { is_expected.to eq [
-        'mail.example.com.', 'mail2.example.com.', 'mail3.example.com.',
+        '10 mail.example.com.', '20 mail2.example.com.', '50 mail3.example.com.',
         '192.0.2.1', '2001:db8:10::1',
         '192.0.2.2', '2001:db8:10::2',
         'example.com.', 'www.example.com.',
