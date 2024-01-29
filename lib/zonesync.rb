@@ -1,5 +1,6 @@
 require "zonesync/provider"
 require "zonesync/diff"
+require "zonesync/logger"
 
 module Zonesync
   def self.call zonefile:, credentials:
@@ -12,7 +13,7 @@ module Zonesync
       destination = Provider.from(self.destination)
       operations = Diff.call(from: destination, to: source)
       operations.each do |method, args|
-        puts [method, args].inspect
+        Logger.log(method, args)
         destination.send(method, args)
       end
     end
