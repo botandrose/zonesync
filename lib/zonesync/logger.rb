@@ -2,13 +2,15 @@ require "logger"
 require "fileutils"
 
 class Logger
-  def self.log method, args
-    stdout = ::Logger.new(STDOUT)
+  def self.log method, args, dry_run: false
+    loggers = [::Logger.new(STDOUT)]
 
-    FileUtils.mkdir_p("log")
-    file = ::Logger.new("log/zonesync.log")
+    if !dry_run
+      FileUtils.mkdir_p("log")
+      loggers << ::Logger.new("log/zonesync.log")
+    end
 
-    [stdout,file].each do |logger|
+    loggers.each do |logger|
       operation = case args
       when Array
         args.map { |h| h.values.join(" ") }.join(" -> ")

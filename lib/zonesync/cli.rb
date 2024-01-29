@@ -8,8 +8,9 @@ module Zonesync
 
     default_command :sync
     desc "sync", "syncs the contents of Zonefile to the DNS server configured in Rails.application.credentials.zonesync"
+    method_option :dry_run, type: :boolean, default: false, aliases: :n, desc: "log operations to STDOUT but don't perform the sync"
     def sync
-      Zonesync.call credentials: default_credentials
+      Zonesync.call credentials: default_credentials, dry_run: options[:dry_run]
     end
 
     private

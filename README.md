@@ -77,6 +77,9 @@ aws_secret_access_key: <AWS_SECRET_ACCESS_KEY>
 ```
 $ bundle exec zonesync
 ```
+```
+$ bundle exec zonesync --dry-run # log to STDOUT but don't actually perform the sync
+```
 
 #### Ruby
 
