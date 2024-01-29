@@ -72,6 +72,14 @@ aws_secret_access_key: <AWS_SECRET_ACCESS_KEY>
 
 ### Usage
 
+#### CLI
+
+```
+$ bundle exec zonesync
+```
+
+#### Ruby
+
 Assuming your zone file lives in `hostfile.txt` and your DNS provider credentials are configured in `provider.yml`:
 
 ```ruby

@@ -1,9 +1,10 @@
 require "zonesync/provider"
 require "zonesync/diff"
 require "zonesync/logger"
+require "zonesync/cli"
 
 module Zonesync
-  def self.call zonefile:, credentials:
+  def self.call zonefile: "Zonefile", credentials:
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call
   end
 

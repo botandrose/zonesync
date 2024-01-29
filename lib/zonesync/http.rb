@@ -1,4 +1,5 @@
 require "net/http"
+require "json"
 
 module Zonesync
   class HTTP < Struct.new(:base)
