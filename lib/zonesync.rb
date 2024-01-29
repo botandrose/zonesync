@@ -2,10 +2,22 @@ require "zonesync/provider"
 require "zonesync/diff"
 require "zonesync/logger"
 require "zonesync/cli"
+require "zonesync/rake"
 
 module Zonesync
-  def self.call zonefile: "Zonefile", credentials:, dry_run: false
+  def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
+  end
+
+  def self.default_credentials
+    require "active_support/encrypted_configuration"
+    require "active_support/core_ext/hash/keys"
+    ActiveSupport::EncryptedConfiguration.new(
+      config_path: "config/credentials.yml.enc",
+      key_path: "config/master.key",
+      env_key: "RAILS_MASTER_KEY",
+      raise_if_missing_key: true,
+    ).zonesync
   end
 
   class Sync < Struct.new(:source, :destination)
