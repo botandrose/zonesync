@@ -35,17 +35,30 @@ module Zonesync
       @records ||= begin
         response = http.get(nil)
         response["result"].reduce({}) do |map, attrs|
-          map.merge attrs["id"] => Record.new(
-            attrs["name"] + ".", # normalize to trailing period
-            attrs["type"],
-            attrs["ttl"].to_i,
-            attrs["content"],
-          ).to_h
-        end.invert
+          map.merge to_record(attrs) => attrs["id"]
+        end
       end
     end
 
     private
+
+    def to_record attrs
+      rdata = attrs["content"]
+      if %w[CNAME MX].include?(attrs["type"])
+        rdata = normalize_trailing_period(rdata)
+      end
+
+      Record.new(
+        normalize_trailing_period(attrs["name"]),
+        attrs["type"],
+        attrs["ttl"].to_i,
+        rdata,
+      ).to_h
+    end
+
+    def normalize_trailing_period value
+      value =~ /\.$/ ? value : value + "."
+    end
 
     def http
       return @http if @http
