@@ -9,6 +9,10 @@ module Zonesync
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
   end
 
+  def self.generate zonefile: "Zonefile", credentials: default_credentials
+    Generate.new({ provider: "Filesystem", path: zonefile }, credentials).call
+  end
+
   def self.default_credentials
     require "active_support/encrypted_configuration"
     require "active_support/core_ext/hash/keys"
@@ -33,6 +37,14 @@ module Zonesync
         Logger.log(method, args, dry_run: dry_run)
         destination.send(method, args) unless dry_run
       end
+    end
+  end
+
+  class Generate < Struct.new(:source, :destination)
+    def call
+      source = Provider.from(self.source)
+      destination = Provider.from(self.destination)
+      source.write(destination.read)
     end
   end
 end

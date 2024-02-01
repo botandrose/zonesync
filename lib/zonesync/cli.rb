@@ -9,6 +9,11 @@ module Zonesync
       Zonesync.call dry_run: options[:dry_run]
     end
 
+    desc "generate", "generates a Zonefile from the DNS server configured in Rails.application.credentials.zonesync"
+    def generate
+      Zonesync.generate
+    end
+
     def self.exit_on_failure? = true
   end
 end

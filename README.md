@@ -80,7 +80,9 @@ $ bundle exec zonesync
 ```
 $ bundle exec zonesync --dry-run # log to STDOUT but don't actually perform the sync
 ```
-
+```
+$ bundle exec zonesync generate # generate a Zonefile from the configured provider
+```
 #### Ruby
 
 Assuming your zone file lives in `hostfile.txt` and your DNS provider credentials are configured in `provider.yml`:

@@ -4,6 +4,7 @@ require "zonesync/record"
 module Zonesync
   class Provider < Struct.new(:credentials)
     def self.from credentials
+      return credentials if credentials.is_a?(Provider)
       Zonesync.const_get(credentials[:provider]).new(credentials)
     end
 
@@ -27,6 +28,10 @@ module Zonesync
       raise NotImplementedError
     end
 
+    def write text
+      raise NotImplementedError
+    end
+
     def remove record
       raise NotImplementedError
     end
@@ -46,11 +51,19 @@ module Zonesync
     def read
       credentials[:string]
     end
+
+    def write string
+      credentials[:string] = string
+    end
   end
 
   class Filesystem < Provider
     def read
       File.read(credentials[:path])
+    end
+
+    def write string
+      File.write(credentials[:path], string)
     end
   end
 end
