@@ -20,6 +20,10 @@ module Zonesync
     ).zonesync
   end
 
+  def self.default_provider
+    Provider.from(default_credentials)
+  end
+
   class Sync < Struct.new(:source, :destination)
     def call dry_run: false
       source = Provider.from(self.source)
