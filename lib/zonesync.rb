@@ -36,7 +36,7 @@ module Zonesync
       operations = Diff.call(from: destination, to: source)
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)
-        destination.send(method, args) unless dry_run
+        destination.send(method, *args) unless dry_run
       end
     end
   end

@@ -13,12 +13,12 @@ describe Zonesync::Diff do
       ops = described_class.call(from: from, to: to)
       expect(ops).to eq([[
         :add,
-        {
+        [{
           type: "A",
           name: "www.example.com.",
           ttl: 3600,
           rdata: "192.0.2.1",
-        }
+        }]
       ]])
     end
 
@@ -75,12 +75,12 @@ describe Zonesync::Diff do
       ops = described_class.call(from: from, to: to)
       expect(ops).to eq([[
         :remove,
-        {
+        [{
           name: "www.example.com.",
           type: "A",
           ttl: 3600,
           rdata: "192.0.2.1",
-        }
+        }]
       ]])
     end
   end

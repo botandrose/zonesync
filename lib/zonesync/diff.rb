@@ -11,11 +11,11 @@ module Zonesync
       changes.map do |change|
         case change.action
         when "-"
-          [:remove, change.old_element.to_h]
+          [:remove, [change.old_element.to_h]]
         when "!"
           [:change, [change.old_element.to_h, change.new_element.to_h]]
         when "+"
-          [:add, change.new_element.to_h]
+          [:add, [change.new_element.to_h]]
         end
       end.compact
     end

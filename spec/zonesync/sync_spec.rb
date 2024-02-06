@@ -41,7 +41,7 @@ describe Zonesync::Sync do
       ttl: 3,
       rdata: "192.0.2.1",
     })
-    expect_any_instance_of(Zonesync::Memory).to receive(:change).with([{
+    expect_any_instance_of(Zonesync::Memory).to receive(:change).with({
       name: "mail3.example.com.",
       type: "A",
       ttl: 3,
@@ -51,7 +51,7 @@ describe Zonesync::Sync do
       type: "A",
       ttl: 3,
       rdata: "192.0.2.5",
-    }])
+    })
     subject.call
   end
 end
