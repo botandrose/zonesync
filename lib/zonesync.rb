@@ -14,6 +14,7 @@ module Zonesync
   end
 
   def self.default_credentials
+    require "active_support"
     require "active_support/encrypted_configuration"
     require "active_support/core_ext/hash/keys"
     ActiveSupport::EncryptedConfiguration.new(
