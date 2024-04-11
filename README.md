@@ -58,9 +58,12 @@ We need to tell `zonesync` about our DNS host by building a small YAML file. The
 
 ```
 provider: Cloudflare
+zone_id: <CLOUDFLARE_DOMAIN_ZONE_ID>
+token: <CLOUDFLARE_API_TOKEN>
+# or instead of token you can auth with:
 email: <CLOUDFLARE_EMAIL>
 key: <CLOUDFLARE_API_KEY>
-```
+``
 
 **Route 53**
 

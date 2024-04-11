@@ -65,10 +65,12 @@ module Zonesync
       @http = HTTP.new("https://api.cloudflare.com/client/v4/zones/#{credentials[:zone_id]}/dns_records")
       @http.before_request do |request|
         request["Content-Type"] = "application/json"
-        request["X-Auth-Email"] = credentials[:email]
-        request["X-Auth-Key"] = credentials[:key]
-      end
-      @http.after_response do |response|
+        if credentials[:token]
+          request["Authorization"] = "Bearer #{credentials[:token]}"
+        else
+          request["X-Auth-Email"] = credentials[:email]
+          request["X-Auth-Key"] = credentials[:key]
+        end
       end
       @http
     end
