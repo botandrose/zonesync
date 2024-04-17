@@ -47,7 +47,9 @@ module Zonesync
       if %w[CNAME MX].include?(attrs["type"])
         rdata = normalize_trailing_period(rdata)
       end
-
+      if %w[TXT SPF NAPTR].include?(attrs["type"])
+        rdata = normalize_quoting(rdata)
+      end
       Record.new(
         normalize_trailing_period(attrs["name"]),
         attrs["type"],
@@ -58,6 +60,10 @@ module Zonesync
 
     def normalize_trailing_period value
       value =~ /\.$/ ? value : value + "."
+    end
+
+    def normalize_quoting value
+      value =~ /^".+"$/ ? value : %("#{value}")
     end
 
     def http
