@@ -1,2 +1,2 @@
 --color
---require debug
+--require spec_helper
