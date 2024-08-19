@@ -13,6 +13,8 @@ module Zonesync
         Record.from_dns_zonefile_record(record)
       end.select do |record|
         %w[A AAAA CNAME MX TXT SPF NAPTR PTR].include?(record.type)
+      end.reject do |record|
+        record.comment.to_s.downcase.include? "zonesync: ignore"
       end.sort
     end
 

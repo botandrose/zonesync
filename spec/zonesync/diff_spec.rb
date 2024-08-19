@@ -18,6 +18,7 @@ describe Zonesync::Diff do
           name: "www.example.com.",
           ttl: 3600,
           rdata: "192.0.2.1",
+          comment: "IPv4 address for example.com",
         }]
       ]])
     end
@@ -38,12 +39,14 @@ describe Zonesync::Diff do
             type: "A",
             ttl: 3600,
             rdata: "192.0.2.1",
+            comment: "IPv4 address for example.com",
           },
           {
             name: "example.com.",
             type: "A",
             ttl: 3600,
             rdata: "10.0.0.1",
+            comment: "IPv4 address for example.com",
           },
         ]
       ]])
@@ -80,6 +83,7 @@ describe Zonesync::Diff do
           type: "A",
           ttl: 3600,
           rdata: "192.0.2.1",
+          comment: "IPv4 address for example.com",
         }]
       ]])
     end

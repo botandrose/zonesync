@@ -18,7 +18,7 @@ describe Zonesync::Sync do
     wwwtest       IN  CNAME www                   ; wwwtest.example.com is another alias for www.example.com
     mail          IN  A     192.0.2.3             ; IPv4 address for mail.example.com
     mail2         IN  A     192.0.2.4             ; IPv4 address for mail2.example.com
-    mail3         IN  A     192.0.2.6             ; IPv4 address for mail3.example.com
+    mail3         IN  A     192.0.2.6             ; IPv4 address for mail3.example.com comment
   RECORDS
 
   subject do
@@ -34,23 +34,27 @@ describe Zonesync::Sync do
       type: "MX",
       ttl: 3,
       rdata: "50 mail3.example.com.",
+      comment: "equivalent to above line, but using a relative host name",
     })
     expect_any_instance_of(Zonesync::Memory).to receive(:remove).with({
       name: "ssh.example.com.",
       type: "A",
       ttl: 3,
       rdata: "192.0.2.1",
+      comment: "IPv4 address for ns.example.com",
     })
     expect_any_instance_of(Zonesync::Memory).to receive(:change).with({
       name: "mail3.example.com.",
       type: "A",
       ttl: 3,
       rdata: "192.0.2.6",
+      comment: "IPv4 address for mail3.example.com comment",
     },{
       name: "mail3.example.com.",
       type: "A",
       ttl: 3,
       rdata: "192.0.2.5",
+      comment: "IPv4 address for mail3.example.com",
     })
     subject.call
   end

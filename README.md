@@ -48,7 +48,10 @@ wwwtest       CNAME www
 mail          A     192.0.2.3
 mail2         A     192.0.2.4
 mail3         A     192.0.2.5
+ignore        A     192.0.2.6 ; zonesync: ignore
 ```
+
+Note that records with a comment containing "zonesync: ignore" will not be touched during the sync. I'm considering inverting this from a blacklist to a whitelist in a future version, to avoid stomping on collaborators' records.
 
 ### DNS Host
 

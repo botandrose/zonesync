@@ -19,6 +19,7 @@ module Zonesync
         type: new_record[:type],
         ttl: new_record[:ttl],
         content: new_record[:rdata],
+        comment: new_record[:comment],
       })
     end
 
@@ -28,6 +29,7 @@ module Zonesync
         type: record[:type],
         ttl: record[:ttl],
         content: record[:rdata],
+        comment: record[:comment],
       })
     end
 
@@ -55,6 +57,7 @@ module Zonesync
         attrs["type"],
         attrs["ttl"].to_i,
         rdata,
+        attrs["comment"],
       ).to_h
     end
 

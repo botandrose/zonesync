@@ -10,18 +10,18 @@ describe Zonesync::Provider do
 
       it "returns all records minus SOA and NS" do
         expect(subject.diffable_records.map(&:to_s)).to eq([
-          "example.com. A 3 192.0.2.1",
-          "mail.example.com. A 3 192.0.2.3",
-          "mail2.example.com. A 3 192.0.2.4",
-          "mail3.example.com. A 3 192.0.2.5",
-          "ns.example.com. A 3 192.0.2.2",
-          "example.com. AAAA 3 2001:db8:10::1",
-          "ns.example.com. AAAA 3 2001:db8:10::2",
-          "www.example.com. CNAME 3 example.com.",
-          "wwwtest.example.com. CNAME 3 www.example.com.",
-          "example.com. MX 3 10 mail.example.com.",
-          "example.com. MX 3 20 mail2.example.com.",
-          "example.com. MX 3 50 mail3.example.com.",
+          "example.com. A 3 192.0.2.1 ; IPv4 address for example.com",
+          "mail.example.com. A 3 192.0.2.3 ; IPv4 address for mail.example.com",
+          "mail2.example.com. A 3 192.0.2.4 ; IPv4 address for mail2.example.com",
+          "mail3.example.com. A 3 192.0.2.5 ; IPv4 address for mail3.example.com",
+          "ns.example.com. A 3 192.0.2.2 ; IPv4 address for ns.example.com",
+          "example.com. AAAA 3 2001:db8:10::1 ; IPv6 address for example.com",
+          "ns.example.com. AAAA 3 2001:db8:10::2 ; IPv6 address for ns.example.com",
+          "www.example.com. CNAME 3 example.com. ; www.example.com is an alias for example.com",
+          "wwwtest.example.com. CNAME 3 www.example.com. ; wwwtest.example.com is another alias for www.example.com",
+          "example.com. MX 3 10 mail.example.com. ; mail.example.com is the mailserver for example.com",
+          "example.com. MX 3 20 mail2.example.com. ; equivalent to above line, \"@\" represents zone origin",
+          "example.com. MX 3 50 mail3.example.com. ; equivalent to above line, but using a relative host name",
         ])
       end
     end
@@ -31,18 +31,18 @@ describe Zonesync::Provider do
 
       it "returns all records" do
         expect(subject.diffable_records.map(&:to_s)).to eq([
-          "example.com. A 3 192.0.2.1",
-          "mail.example.com. A 3 192.0.2.3",
-          "mail2.example.com. A 3 192.0.2.4",
-          "mail3.example.com. A 3 192.0.2.5",
-          "ns.example.com. A 3 192.0.2.2",
-          "example.com. AAAA 3 2001:db8:10::1",
-          "ns.example.com. AAAA 3 2001:db8:10::2",
-          "www.example.com. CNAME 3 example.com.",
-          "wwwtest.example.com. CNAME 3 www.example.com.",
-          "example.com. MX 3 10 mail.example.com.",
-          "example.com. MX 3 20 mail2.example.com.",
-          "example.com. MX 3 50 mail3.example.com.",
+          "example.com. A 3 192.0.2.1 ; IPv4 address for example.com",
+          "mail.example.com. A 3 192.0.2.3 ; IPv4 address for mail.example.com",
+          "mail2.example.com. A 3 192.0.2.4 ; IPv4 address for mail2.example.com",
+          "mail3.example.com. A 3 192.0.2.5 ; IPv4 address for mail3.example.com",
+          "ns.example.com. A 3 192.0.2.2 ; IPv4 address for ns.example.com",
+          "example.com. AAAA 3 2001:db8:10::1 ; IPv6 address for example.com",
+          "ns.example.com. AAAA 3 2001:db8:10::2 ; IPv6 address for ns.example.com",
+          "www.example.com. CNAME 3 example.com. ; www.example.com is an alias for example.com",
+          "wwwtest.example.com. CNAME 3 www.example.com. ; wwwtest.example.com is another alias for www.example.com",
+          "example.com. MX 3 10 mail.example.com. ; mail.example.com is the mailserver for example.com",
+          "example.com. MX 3 20 mail2.example.com. ; equivalent to above line, \"@\" represents zone origin",
+          "example.com. MX 3 50 mail3.example.com. ; equivalent to above line, but using a relative host name",
         ])
       end
     end

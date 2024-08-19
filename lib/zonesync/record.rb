@@ -1,5 +1,5 @@
 module Zonesync
-  class Record < Struct.new(:name, :type, :ttl, :rdata)
+  class Record < Struct.new(:name, :type, :ttl, :rdata, :comment)
     def self.from_dns_zonefile_record record
       type = record.class.name.split("::").last
       rdata = case type
@@ -23,6 +23,7 @@ module Zonesync
         type,
         record.ttl,
         rdata,
+        record.comment,
       )
     end
 
@@ -35,7 +36,9 @@ module Zonesync
     end
 
     def to_s
-      values.join(" ")
+      string = [name, type, ttl, rdata].join(" ")
+      string << " ; #{comment}" if comment
+      string
     end
   end
 end

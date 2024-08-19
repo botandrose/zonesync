@@ -91,6 +91,7 @@ describe Zonesync::Cloudflare do
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
+        comment: "Domain verification record",
       })
     end
   end
@@ -104,6 +105,7 @@ describe Zonesync::Cloudflare do
             "type": "A",
             "ttl": 7200,
             "content": "198.51.100.4",
+            "comment": "Domain verification record",
           }),
           headers: {
            "Content-Type" => "application/json",
@@ -123,11 +125,13 @@ describe Zonesync::Cloudflare do
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
+        comment: "Domain verification record",
       },{
         name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
+        comment: "Domain verification record",
       })
     end
   end
@@ -141,6 +145,7 @@ describe Zonesync::Cloudflare do
             "type": "A",
             "ttl": 3600,
             "content": "198.51.100.4",
+            "comment": "Domain verification record",
           }),
           headers: {
            "Content-Type" => "application/json",
@@ -160,6 +165,7 @@ describe Zonesync::Cloudflare do
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
+        comment: "Domain verification record",
       })
     end
   end
