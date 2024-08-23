@@ -1,5 +1,5 @@
-require "dns/zonefile"
 require "zonesync/record"
+require "zonesync/zonefile"
 
 module Zonesync
   class Provider < Struct.new(:credentials)
@@ -23,7 +23,7 @@ module Zonesync
       if body !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
         body.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
       end
-      DNS::Zonefile.load(body)
+      Zonefile.load(body)
     end
 
     def read record

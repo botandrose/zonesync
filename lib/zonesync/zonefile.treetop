@@ -1,0 +1,586 @@
+grammar Zonefile
+  rule zone
+    (variable / space_or_break / comment)* soa (resource_record / variable / comment / space / linebreak)* {
+      def variables
+        @variables ||= begin
+          raw = elements[0].elements.select { |e| e.to_s =~ /^\$/ }
+          variables = {}
+          raw.each do |e|
+            variables[e.name.text_value.to_s] = e.value.text_value.to_s
+          end
+          variables
+        end
+      end
+
+      def origin
+        soa.origin.host.to_s
+      end
+
+      def to_s
+        text_value
+      end
+
+      def rr
+        elements[-1].elements.select { |e| e.to_s !~ /\A\s*([;$].*)?\z|\A\z/; }
+      end
+      
+      def entries
+        elements[0].elements.select { |e| e.to_s !~ /\A\s*(;.*)?\z|\A\z/; } +
+          [soa] +
+          elements[-1].elements.select { |e| e.to_s !~ /\A\s*(;.*)?\z|\A\z/; }
+      end
+    }
+  end
+
+  rule variable
+    "$" name:([a-zA-Z0-9]+) space value:([a-zA-Z0-9\.\-_]+) space? comment? {
+      def to_s
+        "$#{name.text_value.to_s} #{value.text_value.to_s}"
+      end
+
+      def parse_type ; :variable ; end
+    }
+  end
+
+  rule soa
+    (
+     origin space ttl klass "SOA" space ns space "("? multiline_comment* space_or_break* rp multiline_comment* space_or_break* "("?  multiline_comment* space_or_break* serial multiline_comment* space_or_break refresh multiline_comment* space_or_break reretry multiline_comment* space_or_break expiry multiline_comment* space_or_break nxttl multiline_comment* space_or_break* ")"? /
+     origin space klass ttl "SOA" space ns space "("? multiline_comment* space_or_break* rp multiline_comment* space_or_break* "("?  multiline_comment* space_or_break* serial multiline_comment* space_or_break refresh multiline_comment* space_or_break reretry multiline_comment* space_or_break expiry multiline_comment* space_or_break nxttl multiline_comment* space_or_break* ")"?
+    ) {
+      def to_s
+        "#{origin} #{ttl} #{klass} SOA #{ns} #{rp} (#{serial} #{refresh} #{reretry} #{expiry} #{nxttl})"
+      end
+      
+      def parse_type ; :soa ; end
+    }
+  end
+
+  rule resource_record
+    record:(a_record / aaaa_record / caa_record / cname_record / mx_record / naptr_record / ns_record / ptr_record / srv_record / spf_record / sshfp_record / txt_record / soa_record) space* comment:comment? linebreak {
+      def zone
+        p = parent
+        while p.respond_to?(:parent) && p.parent
+          p = p.parent
+        end
+        p
+      end
+      
+      def to_s
+        text_value
+      end
+
+      def record_type
+        record.record_type
+      end
+
+      def ttl
+        record.ttl || zone.variables['TTL'].to_i
+      end
+
+      def comment
+        return if super.empty?
+        super
+      end
+
+      def method_missing(method_name, *args)
+        if record.respond_to?(method_name)
+          record.send(method_name, *args)
+        end
+      end
+
+      def respond_to?(method_name)
+        super || record.respond_to?(method_name)
+      end
+
+      def parse_type ; :record ; end
+    }
+  end
+
+  rule a_record
+    (
+     host space ms_age ttl klass "A" space ip_address /
+     host space ms_age klass ttl "A" space ip_address
+    ) {
+      def to_s
+        "#{host} #{ms_age} #{ttl} #{klass} A #{ip_address}"
+      end
+
+      def record_type
+        "A"
+      end
+    }
+  end
+
+  rule ip_address
+    [\d]+ "." [\d]+ "." [\d]+ "." [\d]+ {
+      def to_s
+        text_value
+      end
+    }
+  end
+  
+  rule aaaa_record
+    (
+     host space ms_age ttl klass "AAAA" space ip_address:ip6_address /
+     host space ms_age klass ttl "AAAA" space ip_address:ip6_address
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} AAAA #{ip_address}"
+      end
+
+      def record_type
+        "AAAA"
+      end
+    }
+  end
+  
+  rule ip6_address
+    [\da-fA-F:.] 2..39 {
+      def to_s
+        text_value.downcase
+      end
+    }
+  end
+
+  rule caa_record
+    (
+      host space ms_age ttl klass "CAA" space flags:integer space tag:unquoted_string space value:caa_value /
+      host space ms_age klass ttl "CAA" space flags:integer space tag:unquoted_string space value:caa_value
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} CAA #{flags} #{tag} #{value}"
+      end
+
+      def record_type
+        "CAA"
+      end
+    }
+  end
+
+  rule caa_value
+    (quoted_string / unquoted_string) {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule cname_record
+    (
+     host space ms_age ttl klass "CNAME" space target:host /
+     host space klass ms_age ttl "CNAME" space target:host /
+     host space ms_age ttl "CNAME" space target:host /
+     host space klass "CNAME" space target:host 
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} CNAME #{target}"
+      end
+
+      def record_type
+        "CNAME"
+      end
+    }
+  end
+
+  rule mx_record
+    (
+     host space ttl klass "MX" space priority:integer space exchanger:host /
+     host space klass ttl "MX" space priority:integer space exchanger:host
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} MX #{priority} #{exchanger}"
+      end
+
+      def record_type
+        "MX"
+      end
+    }
+  end
+  
+  rule naptr_record
+    (
+     host space ms_age ttl klass "NAPTR" space data /
+     host space ms_age klass ttl "NAPTR" space data
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} NAPTR #{data}"
+      end
+
+      def record_type
+        "NAPTR"
+      end
+    }
+  end
+
+  rule ns_record
+    (
+     host space ms_age ttl klass "NS" space nameserver:host /
+     host space ms_age klass ttl "NS" space nameserver:host
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} NS #{nameserver}"
+      end
+
+      def record_type
+        "NS"
+      end
+    }
+  end
+
+  rule ptr_record
+    (
+     host space ms_age ttl klass "PTR" space target:host /
+     host space ms_age klass ttl "PTR" space target:host
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} PTR #{target}"
+      end
+
+      def record_type
+        "PTR"
+      end
+    }
+  end
+
+  rule soa_record
+    (
+     origin space ms_age ttl klass "SOA" space ns space rp space data /
+     origin space ms_age klass ttl "SOA" space ns space rp space data
+    ) {
+      def to_s
+        "#{origin} #{ttl} #{klass} SOA #{ns} #{rp} (#{space})"
+      end
+
+      def record_type
+        "SOA"
+      end
+    }
+  end
+
+  rule srv_record
+    (
+     host space ms_age ttl klass "SRV" space priority:integer space weight:integer space port:integer space target:host /
+     host space klass ms_age ttl "SRV" space priority:integer space weight:integer space port:integer space target:host /
+     host space ms_age ttl "SRV" space priority:integer space weight:integer space port:integer space target:host /
+     host space klass "SRV" space priority:integer space weight:integer space port:integer space target:host
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} SRV #{priority} #{weight} #{port} #{target}"
+      end
+
+      def record_type
+        "SRV"
+      end
+    }
+  end
+
+  rule spf_record
+    (
+     host space ms_age ttl klass "SPF" space data:txt_data /
+     host space ms_age klass ttl "SPF" space data:txt_data 
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} SPF #{data}"
+      end
+
+      def record_type
+        "SPF"
+      end
+    }
+  end
+
+  rule sshfp_record
+    (
+     host space ms_age ttl klass "SSHFP" space alg:integer space fptype:integer space fp:fingerprint / 
+     host space ms_age klass ttl "SSHFP" space alg:integer space fptype:integer space fp:fingerprint 
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} SSHFP #{alg} #{fptype} #{fp}"
+      end
+
+      def record_type
+        "SSHFP"
+      end
+    }
+  end
+
+  rule txt_record
+    (
+     host space ms_age ttl klass "TXT" space data:ms_txt_data /
+     host space ms_age klass ttl "TXT" space data:ms_txt_data
+    ) {
+      def to_s
+        "#{host} #{ttl} #{klass} TXT #{data}"
+      end
+
+      def record_type
+        "TXT"
+      end
+    }
+  end
+
+  rule origin
+    host comment* {
+      def to_s
+        "#{host}"
+      end
+    }
+  end
+
+  rule multiline_comment
+     linebreak+ comment* {
+      def to_s
+        text_value.strip
+      end
+    }
+  end
+
+  rule space
+    [ \t]+ {
+      def to_s
+        text_value
+      end
+    }
+  end
+  
+  rule linebreak
+    [\n\r]+ {
+      def to_s
+        ''
+      end
+    }
+  end
+  
+  rule space_or_break
+    [\s]+ {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule klass
+    (("IN" space) / '') {
+      def to_s
+        text_value.strip
+      end
+    }
+  end
+  
+  rule comment
+    space* ";" [^\n\r]* {
+      def to_s
+        text_value[2..].to_s.strip
+      end
+
+      def parse_type ; :comment ; end
+    }
+  end
+
+  rule ns
+    host comment* {
+      def to_s
+        "#{host}"
+      end
+    }
+  end
+
+  rule rp
+    rp_value comment* {
+      def to_s
+       "#{rp_value}"
+      end
+    }
+  end
+
+  rule rp_value
+    ("." / (("\\." / [a-zA-Z0-9\-)])+ "."?)+) {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule serial
+    integer comment* {
+      def to_i
+        integer.to_i
+      end
+      def to_s
+        "#{to_i}"
+      end
+    }
+  end
+
+  rule time_interval
+    integer time_multiplier {
+      def to_s
+        text_value
+      end
+
+      def to_i
+        time_multiplier.to_i * integer.to_i
+      end
+    }
+  end
+
+  rule refresh
+    time_interval comment* {
+      def to_i
+        time_interval.to_i
+      end
+      def to_s
+        time_interval.to_s
+      end
+    }
+  end
+
+  rule integer
+    [0-9]+ {
+      def to_i
+        text_value.to_i
+      end
+      def to_s
+        "#{to_i}"
+      end
+    }
+  end
+
+  rule time_multiplier
+    ( 's' / 'S' / 'm' / 'M' / 'h' / 'H' / 'd' / 'D' / 'w' / 'W' / '' ) {
+      def to_s
+        text_value
+      end
+      def to_i
+        case text_value.downcase
+          when 'm' then 60
+          when 'h' then 60 * 60
+          when 'd' then 60 * 60 * 24
+          when 'w' then 60 * 60 * 24 * 7
+          else
+            1
+        end
+      end
+    }
+  end
+
+  rule reretry
+    time_interval comment* {
+      def to_i
+        time_interval.to_i
+      end
+      def to_s
+        time_interval.to_s
+      end
+    }
+  end
+
+  rule expiry
+    time_interval comment* {
+      def to_i
+        time_interval.to_i
+      end
+      def to_s
+        time_interval.to_s
+      end
+    }
+  end
+
+  rule nxttl
+    time_interval comment* {
+      def to_i
+        time_interval.to_i
+      end
+      def to_s
+        time_interval.to_s
+      end
+    }
+  end
+
+  rule ms_age
+    ( "[AGE:" [\d]+ "]" space / '' ) {
+      def to_s
+        text_value
+      end
+    }
+  end
+  
+  rule ttl
+    ((time_interval space) / '') {
+      def to_i
+        respond_to?(:time_interval) ? time_interval.to_i : nil
+      end
+      def to_s
+        respond_to?(:time_interval) ? time_interval.to_s : ''
+      end
+    }
+  end
+
+  rule host
+    ( ([*a-zA-Z0-9\-\._]+) / "@" / ' ' / "\t" ) {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule fingerprint
+    [a-fA-Z0-9:]+ {
+      def to_s
+        text_value.strip
+      end
+    }
+  end
+
+  rule data
+    [^;\n\r]+ {
+      def to_s
+        text_value.strip
+      end
+    }
+  end
+
+  rule ms_txt_data
+    (
+      "(" space* data:txt_data space* ")" /
+      data:txt_data
+    ) {
+      def to_s
+        data.to_s
+      end
+    }
+  end
+  
+  rule txt_data
+    txt_string (space txt_data)* {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule txt_string
+    (quoted_string / unquoted_string) {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule quoted_string
+    ( '"' ( '\"' / [^"] )* '"') {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+  rule unquoted_string
+    '[a-zA-Z0-9=_\.\-\@\:\~]+'r {
+      def to_s
+        text_value
+      end
+    }
+  end
+
+end
