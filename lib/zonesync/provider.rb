@@ -48,6 +48,7 @@ module Zonesync
   end
 
   require "zonesync/cloudflare"
+  require "zonesync/route53"
 
   class Memory < Provider
     def read

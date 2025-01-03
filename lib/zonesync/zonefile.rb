@@ -8,6 +8,7 @@ module Zonesync
         parser = ZonefileParser.new
         result = parser.parse(zone_string)
         return result if result
+        puts zone_string
         raise ParsingError, parser.failure_reason
       end
 

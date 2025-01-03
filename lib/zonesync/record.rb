@@ -32,11 +32,12 @@ module Zonesync
     end
 
     def to_sortable
-      [type, name, rdata, ttl]
+      is_soa = type == "SOA" ? 0 : 1
+      [is_soa, type, name, rdata, ttl]
     end
 
     def to_s
-      string = [name, type, ttl, rdata].join(" ")
+      string = [name, ttl, type, rdata].join(" ")
       string << " ; #{comment}" if comment
       string
     end
