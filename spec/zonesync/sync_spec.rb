@@ -56,7 +56,7 @@ describe Zonesync::Sync do
       rdata: "192.0.2.5",
       comment: "IPv4 address for mail3.example.com",
     })
-    subject.call
+    subject.call manifest: false
   end
 end
 

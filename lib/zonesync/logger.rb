@@ -13,7 +13,8 @@ class Logger
     loggers.each do |logger|
       operation = case args
       when Array
-        args.map { |h| h.values.join(" ") }.join(" -> ")
+        (args.length == 2 ? "\n" : "") +
+          args.map { |h| h.values.join(" ") }.join("->\n")
       when Hash
         args.values.join(" ")
       else

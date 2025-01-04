@@ -30,10 +30,16 @@ module Zonesync
   end
 
   class Sync < Struct.new(:source, :destination)
-    def call dry_run: false
+    def call dry_run: false, manifest: true
       source = Provider.from(self.source)
       destination = Provider.from(self.destination)
-      operations = Diff.call(from: destination, to: source)
+      operations = Diff.call(
+        from: destination.diffable_records,
+        to: source.diffable_records,
+      )
+      if manifest && source.manifest != destination.manifest
+        operations << [:change, [destination.manifest.to_h, source.manifest.to_h]]
+      end
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)
         destination.send(method, *args) unless dry_run

@@ -91,7 +91,7 @@ describe Zonesync::Diff do
 end
 
 def build string
-  Zonesync::Provider.from({ provider: "Memory", string: <<~STRING })
+  Zonesync::Provider.from({ provider: "Memory", string: <<~STRING }).diffable_records
     $ORIGIN example.com.     ; designates the start of this zone file in the namespace
     $TTL 3600                ; default expiration time of all resource records without their own TTL value
     example.com.      SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )

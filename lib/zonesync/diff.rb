@@ -7,7 +7,7 @@ module Zonesync
     end
 
     def call
-      changes = ::Diff::LCS.sdiff(from.diffable_records, to.diffable_records)
+      changes = ::Diff::LCS.sdiff(from, to)
       changes.map do |change|
         case change.action
         when "-"

@@ -27,6 +27,13 @@ module Zonesync
       )
     end
 
+    def short_name origin
+      ret = name.sub(origin, "")
+      ret = ret.sub(/\.$/, "")
+      ret = "@" if ret == ""
+      ret
+    end
+
     def <=> other
       to_sortable <=> other.to_sortable
     end

@@ -1,5 +1,6 @@
 require "zonesync/record"
 require "zonesync/zonefile"
+require "zonesync/manifest"
 
 module Zonesync
   class Provider < Struct.new(:credentials)
@@ -12,18 +13,22 @@ module Zonesync
       zonefile.records.map do |record|
         Record.from_dns_zonefile_record(record)
       end.select do |record|
-        %w[A AAAA CNAME MX TXT SPF NAPTR PTR].include?(record.type)
-      end.reject do |record|
-        record.comment.to_s.downcase.include? "zonesync: ignore"
+        Manifest.diffable?(record)
       end.sort
     end
 
+    def manifest
+      @manifest ||= Manifest.generate(diffable_records, zonefile)
+    end
+
     private def zonefile
-      body = read
-      if body !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
-        body.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
+      @zonefile ||= begin
+        body = read
+        if body !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
+          body.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
+        end
+        Zonefile.load(body)
       end
-      Zonefile.load(body)
     end
 
     def read record
