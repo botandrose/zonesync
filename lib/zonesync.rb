@@ -37,8 +37,9 @@ module Zonesync
         from: destination.diffable_records,
         to: source.diffable_records,
       )
-      if manifest && source.manifest != destination.manifest
-        operations << [:change, [destination.manifest.to_h, source.manifest.to_h]]
+      manifests = [source.manifest.generate, destination.manifest.existing]
+      if manifest && manifests[0] != manifests[1]
+        operations << [:change, manifests.reverse.map(&:to_h)]
       end
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)

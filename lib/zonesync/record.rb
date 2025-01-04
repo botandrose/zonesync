@@ -34,6 +34,11 @@ module Zonesync
       ret
     end
 
+    def manifest?
+      type == "TXT" &&
+        name =~ /^zonesync_manifest\./
+    end
+
     def <=> other
       to_sortable <=> other.to_sortable
     end

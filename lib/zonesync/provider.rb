@@ -9,16 +9,20 @@ module Zonesync
       Zonesync.const_get(credentials[:provider]).new(credentials)
     end
 
-    def diffable_records
+    def records
       zonefile.records.map do |record|
         Record.from_dns_zonefile_record(record)
-      end.select do |record|
-        Manifest.diffable?(record)
+      end
+    end
+
+    def diffable_records
+      records.select do |record|
+        manifest.diffable?(record)
       end.sort
     end
 
     def manifest
-      @manifest ||= Manifest.generate(diffable_records, zonefile)
+      @manifest ||= Manifest.new(records, zonefile)
     end
 
     private def zonefile
