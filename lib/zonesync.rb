@@ -8,6 +8,7 @@ require "zonesync/rake"
 module Zonesync
   class ConflictError < StandardError; end
   class MissingManifestError < StandardError; end
+  class ChecksumMismatchError < StandardError; end
 
   def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
@@ -34,22 +35,36 @@ module Zonesync
   end
 
   class Sync < Struct.new(:source, :destination)
-    def call dry_run: false, manifest: true
+    def call dry_run: false
       source = Provider.from(self.source)
       destination = Provider.from(self.destination)
       operations = Diff.call(
         from: destination.diffable_records,
         to: source.diffable_records,
       )
+
       Validator.call(operations, destination)
-      manifests = [source.manifest.generate, destination.manifest.existing]
-      if manifest && manifests[0] != manifests[1]
-        if manifests[1].nil?
-          operations << [:add, [manifests[0]]]
+
+      smanifest = source.manifest.generate
+      dmanifest = destination.manifest.existing
+      if smanifest != dmanifest
+        if dmanifest
+          operations << [:change, [dmanifest, smanifest]]
         else
-          operations << [:change, manifests.reverse]
+          operations << [:add, [smanifest]]
         end
       end
+
+      schecksum = source.manifest.generate_checksum
+      dchecksum = destination.manifest.existing_checksum
+      if schecksum != dchecksum
+        if dchecksum
+          operations << [:change, [dchecksum, schecksum]]
+        else
+          operations << [:add, [schecksum]]
+        end
+      end
+
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)
         destination.send(method, *args) unless dry_run

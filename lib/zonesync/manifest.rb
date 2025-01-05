@@ -1,5 +1,5 @@
 require "zonesync/record"
-require "json"
+require "digest"
 
 module Zonesync
   class Manifest < Struct.new(:records, :zone)
@@ -20,6 +20,22 @@ module Zonesync
         type: "TXT",
         ttl: zone.default_ttl || 3600,
         rdata: generate_rdata,
+        comment: nil,
+      )
+    end
+
+    def existing_checksum
+      records.find(&:checksum?)
+    end
+
+    def generate_checksum
+      input_string = diffable_records.map(&:to_s).join
+      sha256 = Digest::SHA256.hexdigest(input_string)
+      Record.new(
+        name: "zonesync_checksum.#{zone.origin}",
+        type: "TXT",
+        ttl: zone.default_ttl || 3600,
+        rdata: sha256.inspect,
         comment: nil,
       )
     end
@@ -62,10 +78,14 @@ module Zonesync
       end.join(";").inspect
     end
 
-    def generate_manifest
+    def diffable_records
       records.select do |record|
         diffable?(record)
-      end.reduce({}) do |hash, record|
+      end
+    end
+
+    def generate_manifest
+      diffable_records.reduce({}) do |hash, record|
         hash[record.type] ||= []
         hash[record.type] << shorthand_for(record)
         hash[record.type].sort!

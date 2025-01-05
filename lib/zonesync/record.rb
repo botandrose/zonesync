@@ -39,6 +39,11 @@ module Zonesync
         name =~ /^zonesync_manifest\./
     end
 
+    def checksum?
+      type == "TXT" &&
+        name =~ /^zonesync_checksum\./
+    end
+
     def <=> other
       to_sortable <=> other.to_sortable
     end

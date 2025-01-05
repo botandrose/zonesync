@@ -5,9 +5,14 @@ module Zonesync
     end
 
     def call
-      if operations.any? && !destination.manifest.existing?
+      if operations.any? && !manifest.existing?
         raise MissingManifestError.new(<<~MSG)
           The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
+        MSG
+      end
+      if manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
+        raise ChecksumMismatchError.new(<<~MSG)
+          The zonesync_checksum TXT record does not match the current state of the DNS records. This probably means that someone else has changed them.
         MSG
       end
       operations.each do |method, args|
@@ -17,8 +22,11 @@ module Zonesync
 
     private
 
+    def manifest
+      destination.manifest
+    end
+
     def add record
-      manifest = destination.manifest
       return if manifest.matches?(record)
       conflicting_record = destination.records.find do |r|
         manifest.shorthand_for(r) == manifest.shorthand_for(record)
