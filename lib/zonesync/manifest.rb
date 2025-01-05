@@ -18,7 +18,7 @@ module Zonesync
       Record.new(
         name: "zonesync_manifest.#{zone.origin}",
         type: "TXT",
-        ttl: zone.default_ttl || 3600,
+        ttl: 3600,
         rdata: generate_rdata,
         comment: nil,
       )
@@ -34,7 +34,7 @@ module Zonesync
       Record.new(
         name: "zonesync_checksum.#{zone.origin}",
         type: "TXT",
-        ttl: zone.default_ttl || 3600,
+        ttl: 3600,
         rdata: sha256.inspect,
         comment: nil,
       )

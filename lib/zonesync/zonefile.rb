@@ -16,7 +16,6 @@ module Zonesync
         parsed = parse(zone_string)
         Zone.new(parsed.entries,
           origin: parsed.variables["ORIGIN"],
-          default_ttl: parsed.variables["TTL"].to_i
         )
       end
     end
@@ -26,11 +25,9 @@ module Zonesync
     class Zone
       attr_reader :origin
       attr_reader :records
-      attr_reader :default_ttl
 
-      def initialize(entries, origin: nil, alternate_origin: ".", default_ttl: nil)
+      def initialize(entries, origin: nil, alternate_origin: ".")
         @origin = origin
-        @default_ttl = default_ttl
         @records = []
         @vars = {"origin" => alternate_origin, :last_host => "."}
         entries.each do |e|
@@ -66,6 +63,7 @@ module Zonesync
             end
           end
         end
+        @origin ||= soa.origin
       end
 
       def soa

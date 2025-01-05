@@ -4,12 +4,9 @@ require "zonesync/validator"
 require "zonesync/logger"
 require "zonesync/cli"
 require "zonesync/rake"
+require "zonesync/errors"
 
 module Zonesync
-  class ConflictError < StandardError; end
-  class MissingManifestError < StandardError; end
-  class ChecksumMismatchError < StandardError; end
-
   def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
   end
