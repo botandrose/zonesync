@@ -13,13 +13,13 @@ describe Zonesync::Diff do
       ops = described_class.call(from: from, to: to)
       expect(ops).to eq([[
         :add,
-        [{
+        [Zonesync::Record.new(
           type: "A",
           name: "www.example.com.",
           ttl: 3600,
           rdata: "192.0.2.1",
           comment: "IPv4 address for example.com",
-        }]
+        )]
       ]])
     end
 
@@ -34,20 +34,20 @@ describe Zonesync::Diff do
       expect(ops).to eq([[
         :change,
         [
-          {
+          Zonesync::Record.new(
             name: "example.com.",
             type: "A",
             ttl: 3600,
             rdata: "192.0.2.1",
             comment: "IPv4 address for example.com",
-          },
-          {
+          ),
+          Zonesync::Record.new(
             name: "example.com.",
             type: "A",
             ttl: 3600,
             rdata: "10.0.0.1",
             comment: "IPv4 address for example.com",
-          },
+          ),
         ]
       ]])
     end
@@ -78,13 +78,13 @@ describe Zonesync::Diff do
       ops = described_class.call(from: from, to: to)
       expect(ops).to eq([[
         :remove,
-        [{
+        [Zonesync::Record.new(
           name: "www.example.com.",
           type: "A",
           ttl: 3600,
           rdata: "192.0.2.1",
           comment: "IPv4 address for example.com",
-        }]
+        )]
       ]])
     end
   end

@@ -16,11 +16,11 @@ module Zonesync
 
     def generate
       Record.new(
-        "zonesync_manifest.#{zone.origin}",
-        "TXT",
-        zone.default_ttl || 3600,
-        generate_rdata,
-        nil,
+        name: "zonesync_manifest.#{zone.origin}",
+        type: "TXT",
+        ttl: zone.default_ttl || 3600,
+        rdata: generate_rdata,
+        comment: nil,
       )
     end
 
@@ -33,6 +33,7 @@ module Zonesync
     end
 
     def matches? record
+      return false unless existing?
       hash = existing
         .rdata[1..-2] # remove quotes
         .split(";")
@@ -42,7 +43,15 @@ module Zonesync
           hash
         end
       shorthands = hash.fetch(record.type, [])
-      shorthands.include?(generate_shorthand(record))
+      shorthands.include?(shorthand_for(record))
+    end
+
+    def shorthand_for record
+      shorthand = record.short_name(zone.origin)
+      if record.type == "MX"
+        shorthand += " #{record.rdata[/^\d+/]}"
+      end
+      shorthand
     end
 
     private
@@ -58,18 +67,10 @@ module Zonesync
         diffable?(record)
       end.reduce({}) do |hash, record|
         hash[record.type] ||= []
-        hash[record.type] << generate_shorthand(record)
+        hash[record.type] << shorthand_for(record)
         hash[record.type].sort!
         hash
-      end
-    end
-
-    def generate_shorthand record
-      shorthand = record.short_name(zone.origin)
-      if record.type == "MX"
-        shorthand += " #{record.rdata[/^\d+/]}"
-      end
-      shorthand
+      end.sort_by(&:first)
     end
   end
 end

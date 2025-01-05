@@ -59,11 +59,11 @@ module Zonesync
         rdata = get_value(rr, "Value")
 
         record = Record.new(
-          name,
-          type,
-          get_value(el, "TTL"),
-          rdata,
-          nil, # Route 53 does not have a direct comment field
+          name:,
+          type:,
+          ttl: get_value(el, "TTL"),
+          rdata:,
+          comment: nil, # Route 53 does not have a direct comment field
         )
       end
     end

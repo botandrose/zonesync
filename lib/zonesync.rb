@@ -1,10 +1,13 @@
 require "zonesync/provider"
 require "zonesync/diff"
+require "zonesync/validator"
 require "zonesync/logger"
 require "zonesync/cli"
 require "zonesync/rake"
 
 module Zonesync
+  class ConflictError < StandardError; end
+
   def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
   end
@@ -37,9 +40,10 @@ module Zonesync
         from: destination.diffable_records,
         to: source.diffable_records,
       )
+      Validator.call(operations, destination)
       manifests = [source.manifest.generate, destination.manifest.existing]
       if manifest && manifests[0] != manifests[1]
-        operations << [:change, manifests.reverse.map(&:to_h)]
+        operations << [:change, manifests.reverse]
       end
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)

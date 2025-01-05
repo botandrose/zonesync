@@ -53,11 +53,11 @@ module Zonesync
         rdata = normalize_quoting(rdata)
       end
       Record.new(
-        normalize_trailing_period(attrs["name"]),
-        attrs["type"],
-        attrs["ttl"].to_i,
-        rdata,
-        attrs["comment"],
+        name: normalize_trailing_period(attrs["name"]),
+        type: attrs["type"],
+        ttl: attrs["ttl"].to_i,
+        rdata:,
+        comment: attrs["comment"],
       ).to_h
     end
 

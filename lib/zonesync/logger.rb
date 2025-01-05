@@ -14,11 +14,9 @@ class Logger
       operation = case args
       when Array
         (args.length == 2 ? "\n" : "") +
-          args.map { |h| h.values.join(" ") }.join("->\n")
-      when Hash
-        args.values.join(" ")
+          args.map { |r| r.to_h.values.join(" ") }.join("->\n")
       else
-        raise args.inspect
+        args.to_h.values.join(" ")
       end
       logger.info "Zonesync: #{method.capitalize} #{operation}"
     end
