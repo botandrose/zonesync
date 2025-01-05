@@ -81,7 +81,7 @@ module Zonesync
     def diffable_records
       records.select do |record|
         diffable?(record)
-      end
+      end.sort
     end
 
     def generate_manifest

@@ -20,7 +20,7 @@ describe Zonesync::Sync do
     mail2             IN A     192.0.2.4             ; IPv4 address for mail2.example.com
     mail3             IN A     192.0.2.6             ; IPv4 address for mail3.example.com comment
     zonesync_manifest IN TXT   "A:@,mail,mail2,mail3,ns,ssh;AAAA:@,ns;CNAME:www,wwwtest;MX:@ 10,@ 20"
-    zonesync_checksum IN TXT   "cf132ee8f222bb6fb90c3fb06ff60798d131fb4a6e0dfa6edba65410e082c79e"
+    zonesync_checksum IN TXT   "3e0c7bf5b2582d41e35d0916bad9fefaa8454c4db632c57f5df0b5edee57f4eb"
   RECORDS
 
   subject do
@@ -86,14 +86,14 @@ describe Zonesync::Sync do
         name: "zonesync_checksum.example.com.",
         type: "TXT",
         ttl: 3600,
-        rdata: %("cf132ee8f222bb6fb90c3fb06ff60798d131fb4a6e0dfa6edba65410e082c79e"),
+        rdata: %("3e0c7bf5b2582d41e35d0916bad9fefaa8454c4db632c57f5df0b5edee57f4eb"),
         comment: nil,
       ),
       Zonesync::Record.new(
         name: "zonesync_checksum.example.com.",
         type: "TXT",
         ttl: 3600,
-        rdata: %("abb591ab36bbda8be5ccb4ca2f9a55cf8f278d68de04fdf596b083762adc9706"),
+        rdata: %("5e531bfddbc5204d117898c784e2194e2491139f7650015b3236542c6f2223e0"),
         comment: nil,
       )
     )

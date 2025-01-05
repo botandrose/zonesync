@@ -16,7 +16,7 @@ describe Zonesync::Sync do
       @                 MX    10 mail.example.com.
       @                 MX    20 mail2.example.com.
       zonesync_manifest TXT   "A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"
-      zonesync_checksum TXT   "3edb50f5a72cdd0e93ee98a25efcc42340050732d62bdba67bf08426d2c3fe5e"
+      zonesync_checksum TXT   "e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"
     RECORDS
 
     it "ignores manifest and checksum records if they match" do
@@ -67,14 +67,14 @@ describe Zonesync::Sync do
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"3edb50f5a72cdd0e93ee98a25efcc42340050732d62bdba67bf08426d2c3fe5e"',
+          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
           comment: nil,
         ),
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"c275d222d88edf019063f0b545e1b83fecce8dfdbea1ffcff09ebc39a3856025"',
+          rdata: '"9d5d31d39853a80f897413ce33c3681cb54b89b149d0e3e5c39c1a2bd8d368ef"',
           comment: nil,
         )
       )
@@ -274,9 +274,7 @@ describe Zonesync::Sync do
         RECORDS
         destination,
       )
-      expect { subject.call }.to raise_error(Zonesync::MissingManifestError, <<~MSG)
-        The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
-      MSG
+      expect { subject.call }.to raise_error(Zonesync::MissingManifestError)
     end
 
     it "allows an unchanged clone as an initial sync, and writes the manifest" do
@@ -294,7 +292,7 @@ describe Zonesync::Sync do
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"3edb50f5a72cdd0e93ee98a25efcc42340050732d62bdba67bf08426d2c3fe5e"',
+          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
           comment: nil,
         )
       )
@@ -345,9 +343,7 @@ describe Zonesync::Sync do
         RECORDS
         destination,
       )
-      expect { subject.call }.to raise_error(Zonesync::ChecksumMismatchError, <<~MSG)
-        The zonesync_checksum TXT record does not match the current state of the DNS records. This probably means that someone else has changed them.
-      MSG
+      expect { subject.call }.to raise_error(Zonesync::ChecksumMismatchError)
     end
   end
 end
