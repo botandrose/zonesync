@@ -8,12 +8,12 @@ module Zonesync
     end
 
     def remove record
-      id = records.fetch(record)
+      id = all.fetch(record)
       http.delete("/#{id}")
     end
 
     def change old_record, new_record
-      id = records.fetch(old_record)
+      id = all.fetch(old_record)
       http.patch("/#{id}", {
         name: new_record[:name],
         type: new_record[:type],
@@ -33,8 +33,8 @@ module Zonesync
       })
     end
 
-    def records
-      @records ||= begin
+    def all
+      @all ||= begin
         response = http.get(nil)
         response["result"].reduce({}) do |map, attrs|
           map.merge to_record(attrs) => attrs["id"]
