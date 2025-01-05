@@ -62,8 +62,9 @@ module Zonesync
       shorthands.include?(shorthand_for(record))
     end
 
-    def shorthand_for record
+    def shorthand_for record, with_type: false
       shorthand = record.short_name(zone.origin)
+      shorthand = "#{record.type}:#{shorthand}" if with_type
       if record.type == "MX"
         shorthand += " #{record.rdata[/^\d+/]}"
       end

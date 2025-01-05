@@ -4,16 +4,18 @@ require "zonesync/http"
 module Zonesync
   class Cloudflare < Provider
     def read
-      http.get("/export")
+      ([fake_soa] + all.keys.map do |hash|
+        Record.new(hash)
+      end).map(&:to_s).join("\n") + "\n"
     end
 
     def remove record
-      id = all.fetch(record)
+      id = all.fetch(record.to_h)
       http.delete("/#{id}")
     end
 
     def change old_record, new_record
-      id = all.fetch(old_record)
+      id = all.fetch(old_record.to_h)
       http.patch("/#{id}", {
         name: new_record[:name],
         type: new_record[:type],
@@ -67,6 +69,17 @@ module Zonesync
 
     def normalize_quoting value
       value =~ /^".+"$/ ? value : %("#{value}")
+    end
+
+    def fake_soa
+      zone_name = http.get("/..")["result"]["name"]
+      Record.new(
+        name: normalize_trailing_period(zone_name),
+        type: "SOA",
+        ttl: 1,
+        rdata: "#{zone_name} admin.#{zone_name} 2000010101 1 1 1 1",
+        comment: nil,
+      )
     end
 
     def http

@@ -24,8 +24,9 @@ module Zonesync
 
     def add record
       return if manifest.matches?(record)
+      shorthand = manifest.shorthand_for(record, with_type: true)
       conflicting_record = destination.records.find do |r|
-        manifest.shorthand_for(r) == manifest.shorthand_for(record)
+        manifest.shorthand_for(r, with_type: true) == shorthand
       end
       return if !conflicting_record
       return if conflicting_record == record

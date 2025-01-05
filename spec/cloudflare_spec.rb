@@ -54,7 +54,7 @@ describe Zonesync::Cloudflare do
 
   describe "read" do
     it "works" do
-      stub_request(:get, "https://api.cloudflare.com/client/v4/zones/1234/dns_records/export")
+      stub_request(:get, "https://api.cloudflare.com/client/v4/zones/1234/")
         .with({
           headers: {
            "Content-Type" => "application/json",
@@ -62,9 +62,12 @@ describe Zonesync::Cloudflare do
            "X-Auth-Key"   => "abc123",
           }
         })
-        .to_return(status: 200, body: "dummy", headers: { "Content-Type" => "application/octet-stream; charset=UTF-8" })
+        .to_return(status: 200, body: '{"result":{"name":"example.com"}}', headers: { "Content-Type" => "application/json" })
 
-      expect(subject.read).to eq("dummy")
+      expect(subject.read).to eq(<<~ZONEFILE)
+        example.com. 1 SOA example.com admin.example.com 2000010101 1 1 1 1
+        example.com. 3600 A 198.51.100.4 ; Domain verification record
+      ZONEFILE
     end
   end
 

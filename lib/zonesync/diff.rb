@@ -17,7 +17,9 @@ module Zonesync
         when "+"
           [:add, [change.new_element]]
         end
-      end.compact
+      end.compact.sort_by do |operation|
+        operation.first
+      end.reverse # perform remove operations first
     end
   end
 end
