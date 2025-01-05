@@ -5,6 +5,11 @@ module Zonesync
     end
 
     def call
+      if operations.any? && !destination.manifest.existing?
+        raise MissingManifestError.new(<<~MSG)
+          The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
+        MSG
+      end
       operations.each do |method, args|
         send(method, *args)
       end

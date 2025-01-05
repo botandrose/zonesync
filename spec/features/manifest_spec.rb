@@ -182,7 +182,7 @@ describe Zonesync::Sync do
         )
       )
 
-      subject = described_class.new(
+      described_class.new(
         Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
           $ORIGIN example.com.
           $TTL 3600
@@ -211,8 +211,49 @@ describe Zonesync::Sync do
       @                 MX    20 mail2.example.com.
     RECORDS
 
-    it "errors"
+    it "errors when the applied changes don't match exactly" do
+      subject = described_class.new(
+        Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
+          $ORIGIN example.com.
+          $TTL 3600
+          @    A     192.0.2.1
+          mail A     192.0.2.3
+          www  CNAME example.com.
+          @    MX    10 mail.example.com.
+          @    MX    20 mail2.example.com.
+        RECORDS
+        destination,
+      )
+      expect { subject.call }.to raise_error(Zonesync::MissingManifestError, <<~MSG)
+        The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
+      MSG
+    end
+
+    it "allows an unchanged clone as an initial sync, and writes the manifest" do
+      expect(destination).to receive(:add).with(
+        Zonesync::Record.new(
+          name: "zonesync_manifest.example.com.",
+          type: "TXT",
+          ttl: 3600,
+          rdata: '"A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"',
+          comment: nil,
+        )
+      )
+
+      described_class.new(
+        Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
+          $ORIGIN example.com.
+          $TTL 3600
+          @    A     192.0.2.1
+          ssh  A     192.0.2.1
+          mail A     192.0.2.3
+          www  CNAME example.com.
+          @    MX    10 mail.example.com.
+          @    MX    20 mail2.example.com.
+        RECORDS
+        destination,
+      ).call
+    end
   end
 end
-
 

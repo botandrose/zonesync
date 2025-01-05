@@ -7,6 +7,7 @@ require "zonesync/rake"
 
 module Zonesync
   class ConflictError < StandardError; end
+  class MissingManifestError < StandardError; end
 
   def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
     Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
@@ -43,7 +44,11 @@ module Zonesync
       Validator.call(operations, destination)
       manifests = [source.manifest.generate, destination.manifest.existing]
       if manifest && manifests[0] != manifests[1]
-        operations << [:change, manifests.reverse]
+        if manifests[1].nil?
+          operations << [:add, [manifests[0]]]
+        else
+          operations << [:change, manifests.reverse]
+        end
       end
       operations.each do |method, args|
         Logger.log(method, args, dry_run: dry_run)
