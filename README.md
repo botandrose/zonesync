@@ -48,10 +48,7 @@ wwwtest       CNAME www
 mail          A     192.0.2.3
 mail2         A     192.0.2.4
 mail3         A     192.0.2.5
-ignore        A     192.0.2.6 ; zonesync: ignore
 ```
-
-Note that records with a comment containing "zonesync: ignore" will not be touched during the sync. I'm considering inverting this from a blacklist to a whitelist in a future version, to avoid stomping on collaborators' records.
 
 ### DNS Host
 
@@ -97,4 +94,10 @@ Assuming your zone file lives in `hostfile.txt` and your DNS provider credential
 require 'zonesync'
 Zonesync.call(zonefile: 'hostfile.txt', credentials: YAML.load('provider.yml'))
 ```
+
+### Managing or avoiding conflicts with other people making edits to the DNS records
+
+Zonesync writes two additional TXT records: `zonesync_manifest` and `zonesync_checksum`. These two records together try to handle the situation where someone else makes edits directly to the DNS records managed by zonesync.
+* `zonesync_manifest`: a short list of all the records that zonesync is aware of and managing. If a record appears in the DNS records that is not in the manifest, zonesync will simply ignore it. This makes it possible to coexist with other editors, provided they don't touch the records managed by zonesync. If they do, we have a `zonesync_checksum` to detect that.
+* `zonesync_checksum`: a fingerprint of the state of the managed records upon last save. If the checksum doesn't match the current state of the managed records, zonesync will refuse to save the new state. This is a safety measure to avoid overwriting changes made by other editors, and also to alert the user that the records have been changed outside of zonesync.
 
