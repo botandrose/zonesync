@@ -15,8 +15,15 @@ module Zonesync
   end
 
   class MissingManifestError < StandardError
+    def initialize manifest
+      @manifest = manifest
+    end
+
     def message
-      "The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it."
+      <<~MSG
+        The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
+          manifest: #{@manifest}
+      MSG
     end
   end
 

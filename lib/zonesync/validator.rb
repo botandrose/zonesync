@@ -6,7 +6,7 @@ module Zonesync
 
     def call
       if operations.any? && !manifest.existing?
-        raise MissingManifestError
+        raise MissingManifestError.new(manifest.generate)
       end
       if manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
         raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)

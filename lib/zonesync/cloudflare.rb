@@ -51,7 +51,13 @@ module Zonesync
       if %w[CNAME MX].include?(attrs["type"])
         rdata = normalize_trailing_period(rdata)
       end
+      if attrs["type"] == "MX"
+        rdata = "#{attrs["priority"]} #{rdata}"
+      end
       if %w[TXT SPF NAPTR].include?(attrs["type"])
+        rdata = normalize_quoting(rdata)
+      end
+      if attrs["type"] == "TXT"
         rdata = normalize_quoting(rdata)
       end
       Record.new(
@@ -68,7 +74,8 @@ module Zonesync
     end
 
     def normalize_quoting value
-      value =~ /^".+"$/ ? value : %("#{value}")
+      value =~ /^".+"$/ ? value : %("#{value}") # handle quote wrapping
+      value.gsub('" "', "") # handle multiple txt record joining
     end
 
     def fake_soa
