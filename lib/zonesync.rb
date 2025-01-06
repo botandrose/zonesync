@@ -7,15 +7,21 @@ require "zonesync/rake"
 require "zonesync/errors"
 
 module Zonesync
-  def self.call zonefile: "Zonefile", credentials: default_credentials, dry_run: false
-    Sync.new({ provider: "Filesystem", path: zonefile }, credentials).call(dry_run: dry_run)
+  def self.call source: "Zonefile", destination: "zonesync", dry_run: false
+    Sync.new(
+      { provider: "Filesystem", path: source },
+      credentials[destination]
+    ).call(dry_run: dry_run)
   end
 
-  def self.generate zonefile: "Zonefile", credentials: default_credentials
-    Generate.new({ provider: "Filesystem", path: zonefile }, credentials).call
+  def self.generate source: "zonesync", destination: "Zonefile"
+    Generate.new(
+      credentials[source],
+      { provider: "Filesystem", path: destination }
+    ).call
   end
 
-  def self.default_credentials
+  def self.credentials
     require "active_support"
     require "active_support/encrypted_configuration"
     require "active_support/core_ext/hash/keys"
@@ -24,11 +30,7 @@ module Zonesync
       key_path: "config/master.key",
       env_key: "RAILS_MASTER_KEY",
       raise_if_missing_key: true,
-    ).zonesync
-  end
-
-  def self.default_provider
-    Provider.from(default_credentials)
+    )
   end
 
   class Sync < Struct.new(:source, :destination)
@@ -73,7 +75,7 @@ module Zonesync
     def call
       source = Provider.from(self.source)
       destination = Provider.from(self.destination)
-      source.write(destination.read)
+      destination.write(source.read)
     end
   end
 end
