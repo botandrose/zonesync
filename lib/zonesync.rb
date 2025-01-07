@@ -1,3 +1,6 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "zonesync/provider"
 require "zonesync/diff"
 require "zonesync/validator"
@@ -6,37 +9,49 @@ require "zonesync/cli"
 require "zonesync/rake"
 require "zonesync/errors"
 
+begin # optional active_support dependency
+  require "active_support"
+  require "active_support/encrypted_configuration"
+  require "active_support/core_ext/hash/keys"
+rescue LoadError; end
+
 module Zonesync
+  extend T::Sig
+
+  sig { params(source: T.nilable(String), destination: T.nilable(String), dry_run: T::Boolean).void }
   def self.call source: "Zonefile", destination: "zonesync", dry_run: false
+    source = T.must(source)
+    destination = T.must(destination).to_sym
     Sync.new(
-      { provider: "Filesystem", path: source },
-      credentials[destination]
+      Provider.from({ provider: "Filesystem", path: source }),
+      Provider.from(credentials(destination)),
     ).call(dry_run: dry_run)
   end
 
+  sig { params(source: T.nilable(String), destination: T.nilable(String)).void }
   def self.generate source: "zonesync", destination: "Zonefile"
+    source = T.must(source).to_sym
     Generate.new(
-      credentials[source],
-      { provider: "Filesystem", path: destination }
+      Provider.from(credentials(source)),
+      Provider.from({ provider: "Filesystem", path: T.must(destination) }),
     ).call
   end
 
-  def self.credentials
-    require "active_support"
-    require "active_support/encrypted_configuration"
-    require "active_support/core_ext/hash/keys"
+  sig { params(key: Symbol).returns(T::Hash[Symbol, String]) }
+  def self.credentials key
     ActiveSupport::EncryptedConfiguration.new(
       config_path: "config/credentials.yml.enc",
       key_path: "config/master.key",
       env_key: "RAILS_MASTER_KEY",
       raise_if_missing_key: true,
-    )
+    ).config[key]
   end
 
-  class Sync < Struct.new(:source, :destination)
+  Sync = Struct.new(:source, :destination) do
+    extend T::Sig
+
+    sig { params(dry_run: T::Boolean).void }
     def call dry_run: false
-      source = Provider.from(self.source)
-      destination = Provider.from(self.destination)
       operations = Diff.call(
         from: destination.diffable_records,
         to: source.diffable_records,
@@ -64,18 +79,20 @@ module Zonesync
         end
       end
 
-      operations.each do |method, args|
-        Logger.log(method, args, dry_run: dry_run)
-        destination.send(method, *args) unless dry_run
+      operations.each do |method, records|
+        Logger.log(method, records, dry_run: dry_run)
+        destination.send(method, *records) unless dry_run
       end
     end
   end
 
-  class Generate < Struct.new(:source, :destination)
+  Generate = Struct.new(:source, :destination) do
+    extend T::Sig
+
+    sig { void }
     def call
-      source = Provider.from(self.source)
-      destination = Provider.from(self.destination)
       destination.write(source.read)
+      nil
     end
   end
 end

@@ -77,13 +77,13 @@ describe Zonesync::Route53 do
           </ChangeResourceRecordSetsResponse>
         XML
 
-      subject.remove({
+      subject.remove(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: nil,
-      })
+      ))
     end
   end
 
@@ -158,19 +158,19 @@ describe Zonesync::Route53 do
           </ChangeResourceRecordSetsResponse>
         XML
 
-      subject.change({
+      subject.change(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: nil
-      }, {
+      ), Zonesync::Record.new(
         name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
         comment: nil
-      })
+      ))
     end
   end
 
@@ -211,13 +211,13 @@ describe Zonesync::Route53 do
           </ChangeResourceRecordSetsResponse>
         XML
 
-      subject.add({
+      subject.add(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: nil
-      })
+      ))
     end
   end
 end

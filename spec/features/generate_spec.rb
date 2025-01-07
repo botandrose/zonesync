@@ -21,8 +21,12 @@ describe Zonesync::Generate do
     mail3         IN  A     192.0.2.6             ; IPv4 address for mail3.example.com
   RECORDS
 
-  let(:server) { Zonesync::Provider.from({ provider: "Memory", string: records }) }
-  let(:zonefile) { Zonesync::Provider.from({ provider: "Memory", string: "" }) }
+  let(:server) do
+    Zonesync::Provider.from({ provider: "Memory", string: records })
+  end
+  let(:zonefile) do
+    Zonesync::Provider.from({ provider: "Memory", string: "" })
+  end
 
   subject do
     described_class.new(server, zonefile)

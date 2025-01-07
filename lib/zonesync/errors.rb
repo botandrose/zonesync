@@ -1,10 +1,17 @@
+# typed: strict
+require "sorbet-runtime"
+
 module Zonesync
   class ConflictError < StandardError
+    extend T::Sig
+
+    sig { params(existing: T.nilable(Record), new: Record).void }
     def initialize existing, new
       @existing = existing
       @new = new
     end
 
+    sig { returns(String) }
     def message
       <<~MSG
         The following untracked DNS record already exists and would be overwritten.
@@ -15,10 +22,14 @@ module Zonesync
   end
 
   class MissingManifestError < StandardError
+    extend T::Sig
+
+    sig { params(manifest: Record).void }
     def initialize manifest
       @manifest = manifest
     end
 
+    sig { returns(String) }
     def message
       <<~MSG
         The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
@@ -28,11 +39,15 @@ module Zonesync
   end
 
   class ChecksumMismatchError < StandardError
+    extend T::Sig
+
+    sig { params(existing: T.nilable(Record), new: Record).void }
     def initialize existing, new
       @existing = existing
       @new = new
     end
 
+    sig { returns(String) }
     def message
       <<~MSG
         The zonesync_checksum TXT record does not match the current state of the DNS records. This probably means that someone else has changed them.

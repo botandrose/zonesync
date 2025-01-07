@@ -1,24 +1,29 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "logger"
 require "fileutils"
 
-class Logger
-  def self.log method, args, dry_run: false
-    loggers = [::Logger.new(STDOUT)]
+module Zonesync
+  class Logger
+    extend T::Sig
 
-    if !dry_run
-      FileUtils.mkdir_p("log")
-      loggers << ::Logger.new("log/zonesync.log")
-    end
+    sig { params(method: Symbol, records: T::Array[Record], dry_run: T::Boolean).void }
+    def self.log method, records, dry_run: false
+      loggers = [::Logger.new(STDOUT)]
 
-    loggers.each do |logger|
-      operation = case args
-      when Array
-        (args.length == 2 ? "\n" : "") +
-          args.map { |r| r.to_h.values.join(" ") }.join("->\n")
-      else
-        args.to_h.values.join(" ")
+      if !dry_run
+        FileUtils.mkdir_p("log")
+        loggers << ::Logger.new("log/zonesync.log")
       end
-      logger.info "Zonesync: #{method.capitalize} #{operation}"
+
+      loggers.each do |logger|
+        operation =
+          (records.length == 2 ? "\n" : "") +
+          records.map { |r| r.to_h.values.join(" ") }.join("->\n")
+        logger.info "Zonesync: #{method.capitalize} #{operation}"
+      end
     end
   end
 end
+

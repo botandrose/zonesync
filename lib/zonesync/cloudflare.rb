@@ -1,83 +1,88 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "zonesync/record"
 require "zonesync/http"
 
 module Zonesync
   class Cloudflare < Provider
+    sig { returns(String) }
     def read
-      ([fake_soa] + all.keys.map do |hash|
-        Record.new(hash)
-      end).map(&:to_s).join("\n") + "\n"
+      records = [fake_soa] + all.keys
+      records.map(&:to_s).join("\n") + "\n"
     end
 
+    sig { params(record: Record).void }
     def remove record
-      id = all.fetch(record.to_h)
+      id = all.fetch(record)
       http.delete("/#{id}")
     end
 
+    sig { params(old_record: Record, new_record: Record).void }
     def change old_record, new_record
-      id = all.fetch(old_record.to_h)
-      http.patch("/#{id}", {
-        name: new_record[:name],
-        type: new_record[:type],
-        ttl: new_record[:ttl],
-        content: new_record[:rdata],
-        comment: new_record[:comment],
-      })
+      id = all.fetch(old_record)
+      http.patch("/#{id}", to_hash(new_record))
     end
 
+    sig { params(record: Record).void }
     def add record
-      http.post(nil, {
-        name: record[:name],
-        type: record[:type],
-        ttl: record[:ttl],
-        content: record[:rdata],
-        comment: record[:comment],
-      })
+      http.post("", to_hash(record))
     end
 
+    sig { returns(T::Hash[Record, String]) }
     def all
-      @all ||= begin
-        response = http.get(nil)
-        response["result"].reduce({}) do |map, attrs|
-          map.merge to_record(attrs) => attrs["id"]
-        end
+      response = http.get("")
+      response["result"].reduce({}) do |map, attrs|
+        map.merge to_record(attrs) => attrs["id"]
       end
     end
 
     private
 
+    sig { params(record: Record).returns(T::Hash[String, String]) }
+    def to_hash record
+      hash = record.to_h
+      hash[:content] = hash.delete(:rdata)
+      hash[:comment] = hash.delete(:comment) # maintain original order
+      hash
+    end
+
+    sig { params(attrs: T::Hash[String, String]).returns(Record) }
     def to_record attrs
       rdata = attrs["content"]
       if %w[CNAME MX].include?(attrs["type"])
-        rdata = normalize_trailing_period(rdata)
+        rdata = normalize_trailing_period(T.must(rdata))
       end
       if attrs["type"] == "MX"
         rdata = "#{attrs["priority"]} #{rdata}"
       end
       if %w[TXT SPF NAPTR].include?(attrs["type"])
-        rdata = normalize_quoting(rdata)
+        rdata = normalize_quoting(T.must(rdata))
       end
       if attrs["type"] == "TXT"
-        rdata = normalize_quoting(rdata)
+        rdata = normalize_quoting(T.must(rdata))
       end
       Record.new(
-        name: normalize_trailing_period(attrs["name"]),
+        name: normalize_trailing_period(T.must(attrs["name"])),
         type: attrs["type"],
         ttl: attrs["ttl"].to_i,
         rdata:,
         comment: attrs["comment"],
-      ).to_h
+      )
     end
 
+    sig { params(value: String).returns(String) }
     def normalize_trailing_period value
       value =~ /\.$/ ? value : value + "."
     end
 
+    sig { params(value: String).returns(String) }
     def normalize_quoting value
       value =~ /^".+"$/ ? value : %("#{value}") # handle quote wrapping
       value.gsub('" "', "") # handle multiple txt record joining
     end
 
+    sig { returns(Zonesync::Record) }
     def fake_soa
       zone_name = http.get("/..")["result"]["name"]
       Record.new(
@@ -89,19 +94,20 @@ module Zonesync
       )
     end
 
+    sig { returns(HTTP) }
     def http
       return @http if @http
-      @http = HTTP.new("https://api.cloudflare.com/client/v4/zones/#{credentials[:zone_id]}/dns_records")
-      @http.before_request do |request|
+      @http = T.let(HTTP.new("https://api.cloudflare.com/client/v4/zones/#{config.fetch(:zone_id)}/dns_records"), T.nilable(Zonesync::HTTP))
+      T.must(@http).before_request do |request|
         request["Content-Type"] = "application/json"
-        if credentials[:token]
-          request["Authorization"] = "Bearer #{credentials[:token]}"
+        if config[:token]
+          request["Authorization"] = "Bearer #{config[:token]}"
         else
-          request["X-Auth-Email"] = credentials[:email]
-          request["X-Auth-Key"] = credentials[:key]
+          request["X-Auth-Email"] = config.fetch(:email)
+          request["X-Auth-Key"] = config.fetch(:key)
         end
       end
-      @http
+      T.must(@http)
     end
   end
 end

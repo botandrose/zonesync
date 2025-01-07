@@ -30,8 +30,11 @@ Gem::Specification.new do |spec|
   spec.add_dependency "diff-lcs", "~>1.4"
   spec.add_dependency "thor", "~>1.0"
   spec.add_dependency "treetop", "~>1.6"
+  spec.add_dependency "sorbet-runtime"
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "webmock"
+  spec.add_development_dependency "sorbet"
+  spec.add_development_dependency "tapioca"
 end

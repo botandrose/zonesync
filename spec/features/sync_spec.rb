@@ -25,8 +25,8 @@ describe Zonesync::Sync do
 
   subject do
     described_class.new(
-      { provider: "Filesystem", path: "spec/fixtures/example.com" },
-      { provider: "Memory", string: records },
+      Zonesync::Provider.from({ provider: "Filesystem", path: "spec/fixtures/example.com" }),
+      Zonesync::Provider.from({ provider: "Memory", string: records }),
     )
   end
 

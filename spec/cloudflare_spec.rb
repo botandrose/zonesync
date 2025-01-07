@@ -89,13 +89,13 @@ describe Zonesync::Cloudflare do
           }
         JSON
 
-      subject.remove({
+      subject.remove(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
-      })
+      ))
     end
   end
 
@@ -123,19 +123,19 @@ describe Zonesync::Cloudflare do
           }
         JSON
 
-      subject.change({
+      subject.change(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
-      },{
+      ), Zonesync::Record.new(
         name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
-      })
+      ))
     end
   end
 
@@ -163,13 +163,13 @@ describe Zonesync::Cloudflare do
           }
         JSON
 
-      subject.add({
+      subject.add(Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
-      })
+      ))
     end
   end
 end

@@ -1,11 +1,18 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "diff/lcs"
 
 module Zonesync
-  class Diff < Struct.new(:from, :to)
+  Diff = Struct.new(:from, :to) do
+    extend T::Sig
+
+    sig { params(from: T::Array[Record], to: T::Array[Record]).returns(T.untyped) }
     def self.call(from:, to:)
       new(from, to).call
     end
 
+    sig { returns(T::Array[[Symbol, T::Array[Record]]]) }
     def call
       changes = ::Diff::LCS.sdiff(from, to)
       changes.map do |change|

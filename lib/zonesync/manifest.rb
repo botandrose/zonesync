@@ -1,19 +1,26 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "zonesync/record"
 require "digest"
 
 module Zonesync
-  class Manifest < Struct.new(:records, :zone)
+  Manifest = Struct.new(:records, :zone) do
+    extend T::Sig
     DIFFABLE_RECORD_TYPES =
-      %w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort
+      T.let(%w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort, T::Array[String])
 
+    sig { returns(T.nilable(Zonesync::Record)) }
     def existing
       records.find(&:manifest?)
     end
 
+    sig { returns(T::Boolean) }
     def existing?
       !!existing
     end
 
+    sig { returns(Zonesync::Record) }
     def generate
       Record.new(
         name: "zonesync_manifest.#{zone.origin}",
@@ -24,10 +31,12 @@ module Zonesync
       )
     end
 
+    sig { returns(T.nilable(Zonesync::Record)) }
     def existing_checksum
       records.find(&:checksum?)
     end
 
+    sig { returns(Zonesync::Record) }
     def generate_checksum
       input_string = diffable_records.map(&:to_s).join
       sha256 = Digest::SHA256.hexdigest(input_string)
@@ -40,6 +49,7 @@ module Zonesync
       )
     end
 
+    sig { params(record: Zonesync::Record).returns(T::Boolean) }
     def diffable? record
       if existing?
         matches?(record)
@@ -48,9 +58,10 @@ module Zonesync
       end
     end
 
+    sig { params(record: Zonesync::Record).returns(T::Boolean) }
     def matches? record
       return false unless existing?
-      hash = existing
+      hash = T.must(existing)
         .rdata[1..-2] # remove quotes
         .split(";")
         .reduce({}) do |hash, pair|
@@ -62,6 +73,7 @@ module Zonesync
       shorthands.include?(shorthand_for(record))
     end
 
+    sig { params(record: Zonesync::Record, with_type: T::Boolean).returns(String) }
     def shorthand_for record, with_type: false
       shorthand = record.short_name(zone.origin)
       shorthand = "#{record.type}:#{shorthand}" if with_type
@@ -73,25 +85,29 @@ module Zonesync
 
     private
 
+    sig { returns(String) }
     def generate_rdata
       generate_manifest.map do |type, short_names|
         "#{type}:#{short_names.join(",")}"
       end.join(";").inspect
     end
 
+    sig { returns(T::Array[Zonesync::Record]) }
     def diffable_records
       records.select do |record|
         diffable?(record)
       end.sort
     end
 
+    sig { returns(T::Hash[String, T::Array[String]]) }
     def generate_manifest
-      diffable_records.reduce({}) do |hash, record|
+      hash = diffable_records.reduce({}) do |hash, record|
         hash[record.type] ||= []
         hash[record.type] << shorthand_for(record)
         hash[record.type].sort!
         hash
-      end.sort_by(&:first)
+      end
+      Hash[hash.sort_by(&:first)]
     end
   end
 end

@@ -1,58 +1,71 @@
+# typed: strict
+require "sorbet-runtime"
+
 require "zonesync/record"
 require "zonesync/zonefile"
 require "zonesync/manifest"
 
 module Zonesync
-  class Provider < Struct.new(:credentials)
-    def self.from credentials
-      return credentials if credentials.is_a?(Provider)
-      Zonesync.const_get(credentials[:provider]).new(credentials)
+  class Provider
+    extend T::Sig
+
+    sig { params(config: T::Hash[Symbol, String]).void }
+    def initialize config
+      @config = T.let(config, T::Hash[Symbol, String])
+    end
+    sig { returns(T::Hash[Symbol, String]) }
+    attr_reader :config
+
+    sig { params(config: T::Hash[Symbol, String]).returns(Provider) }
+    def self.from config
+      Zonesync.const_get(config.fetch(:provider)).new(config)
     end
 
+    sig { returns(T::Array[Record]) }
     def records
-      zonefile.records.map do |record|
-        Record.from_dns_zonefile_record(record)
-      end
+      zonefile.records
     end
 
+    sig { returns(T::Array[Record]) }
     def diffable_records
       records.select do |record|
         manifest.diffable?(record)
       end.sort
     end
 
+    sig { returns(Manifest) }
     def manifest
-      @manifest ||= Manifest.new(records, zonefile)
+      Manifest.new(records, zonefile)
     end
 
+    sig { returns(Zonefile) }
     private def zonefile
-      @zonefile ||= begin
-        body = read
-        if body !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
-          body.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
-        end
-        Zonefile.load(body)
-      end
+      Zonefile.load(read)
     end
 
-    def read record
-      raise NotImplementedError
+    sig { returns(String) }
+    def read
+      Kernel.raise NotImplementedError
     end
 
-    def write text
-      raise NotImplementedError
+    sig { params(string: String).void }
+    def write string
+      Kernel.raise NotImplementedError
     end
 
+    sig { params(record: Record).void }
     def remove record
-      raise NotImplementedError
+      Kernel.raise NotImplementedError
     end
 
+    sig { params(old_record: Record, new_record: Record).void }
     def change old_record, new_record
-      raise NotImplementedError
+      Kernel.raise NotImplementedError
     end
 
+    sig { params(record: Record).void }
     def add record
-      raise NotImplementedError
+      Kernel.raise NotImplementedError
     end
   end
 
@@ -60,22 +73,32 @@ module Zonesync
   require "zonesync/route53"
 
   class Memory < Provider
+    extend T::Sig
+
+    sig { returns(String) }
     def read
-      credentials[:string]
+      config.fetch(:string)
     end
 
+    sig { params(string: String).void }
     def write string
-      credentials[:string] = string
+      config[:string] = string
+      nil
     end
   end
 
   class Filesystem < Provider
+    extend T::Sig
+
+    sig { returns(String) }
     def read
-      File.read(credentials[:path])
+      File.read(config.fetch(:path))
     end
 
+    sig { params(string: String).void }
     def write string
-      File.write(credentials[:path], string)
+      File.write(config.fetch(:path), string)
+      nil
     end
   end
 end

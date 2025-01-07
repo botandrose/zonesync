@@ -1,9 +1,18 @@
+# typed: strict
+require "sorbet-runtime"
+
 module Zonesync
-  class Validator < Struct.new(:operations, :destination)
-    def self.call(...)
-      new(...).call
+  Validator = Struct.new(:operations, :destination) do
+    extend T::Sig
+
+    Operation = T.type_alias { [Symbol, T::Array[Record]] }
+
+    sig { params(operations: T::Array[Operation], destination: Provider).void }
+    def self.call(operations, destination)
+      new(operations, destination).call
     end
 
+    sig { void }
     def call
       if operations.any? && !manifest.existing?
         raise MissingManifestError.new(manifest.generate)
@@ -12,17 +21,22 @@ module Zonesync
         raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)
       end
       operations.each do |method, args|
-        send(method, *args)
+        if method == :add
+          validate_addition args.first
+        end
       end
+      nil
     end
 
     private
 
+    sig { returns(Manifest) }
     def manifest
       destination.manifest
     end
 
-    def add record
+    sig { params(record: Record).void }
+    def validate_addition record
       return if manifest.matches?(record)
       shorthand = manifest.shorthand_for(record, with_type: true)
       conflicting_record = destination.records.find do |r|
@@ -31,14 +45,6 @@ module Zonesync
       return if !conflicting_record
       return if conflicting_record == record
       raise Zonesync::ConflictError.new(conflicting_record, record)
-    end
-
-    def change *records
-      # FIXME? is it possible to break something with a tracked changed record
-    end
-
-    def remove record
-      # FIXME? is it possible to break something with a tracked removed record
     end
   end
 end
