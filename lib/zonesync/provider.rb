@@ -4,6 +4,8 @@ require "sorbet-runtime"
 require "zonesync/record"
 require "zonesync/zonefile"
 require "zonesync/manifest"
+require "zonesync/diff"
+require "zonesync/validator"
 
 module Zonesync
   class Provider
@@ -19,6 +21,16 @@ module Zonesync
     sig { params(config: T::Hash[Symbol, String]).returns(Provider) }
     def self.from config
       Zonesync.const_get(config.fetch(:provider)).new(config)
+    end
+
+    sig { params(other: Provider).returns(T::Array[Operation]) }
+    def diff! other
+      operations = Diff.call(
+        from: diffable_records,
+        to: other.diffable_records,
+      )
+      Validator.call(operations, self)
+      operations
     end
 
     sig { returns(T::Array[Record]) }

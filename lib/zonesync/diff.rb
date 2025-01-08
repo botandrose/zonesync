@@ -4,6 +4,8 @@ require "sorbet-runtime"
 require "diff/lcs"
 
 module Zonesync
+  Operation = T.type_alias { [Symbol, T::Array[Record]] }
+
   Diff = Struct.new(:from, :to) do
     extend T::Sig
 

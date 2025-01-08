@@ -1,10 +1,9 @@
 # typed: strict
 require "sorbet-runtime"
 
+require "zonesync/sync"
+require "zonesync/generate"
 require "zonesync/provider"
-require "zonesync/diff"
-require "zonesync/validator"
-require "zonesync/logger"
 require "zonesync/cli"
 require "zonesync/rake"
 require "zonesync/errors"
@@ -45,55 +44,6 @@ module Zonesync
       env_key: "RAILS_MASTER_KEY",
       raise_if_missing_key: true,
     ).config[key]
-  end
-
-  Sync = Struct.new(:source, :destination) do
-    extend T::Sig
-
-    sig { params(dry_run: T::Boolean).void }
-    def call dry_run: false
-      operations = Diff.call(
-        from: destination.diffable_records,
-        to: source.diffable_records,
-      )
-
-      Validator.call(operations, destination)
-
-      smanifest = source.manifest.generate
-      dmanifest = destination.manifest.existing
-      if smanifest != dmanifest
-        if dmanifest
-          operations << [:change, [dmanifest, smanifest]]
-        else
-          operations << [:add, [smanifest]]
-        end
-      end
-
-      schecksum = source.manifest.generate_checksum
-      dchecksum = destination.manifest.existing_checksum
-      if schecksum != dchecksum
-        if dchecksum
-          operations << [:change, [dchecksum, schecksum]]
-        else
-          operations << [:add, [schecksum]]
-        end
-      end
-
-      operations.each do |method, records|
-        Logger.log(method, records, dry_run: dry_run)
-        destination.send(method, *records) unless dry_run
-      end
-    end
-  end
-
-  Generate = Struct.new(:source, :destination) do
-    extend T::Sig
-
-    sig { void }
-    def call
-      destination.write(source.read)
-      nil
-    end
   end
 end
 

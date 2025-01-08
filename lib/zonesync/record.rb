@@ -44,7 +44,7 @@ module Zonesync
     sig { returns([Integer, String, String, String, Integer]) }
     def to_sortable
       is_soa = type == "SOA" ? 0 : 1
-      [is_soa, type, name, rdata, ttl]
+      [is_soa, type, name, rdata, ttl.to_i]
     end
 
     sig { returns(String) }

@@ -5,8 +5,6 @@ module Zonesync
   Validator = Struct.new(:operations, :destination) do
     extend T::Sig
 
-    Operation = T.type_alias { [Symbol, T::Array[Record]] }
-
     sig { params(operations: T::Array[Operation], destination: Provider).void }
     def self.call(operations, destination)
       new(operations, destination).call

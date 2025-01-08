@@ -9,11 +9,14 @@ module Zonesync
   class Route53 < Provider
     sig { returns(String) }
     def read
-      doc = REXML::Document.new(http.get(""))
-      records = doc.elements.collect("*/ResourceRecordSets/ResourceRecordSet") do |record_set|
-        to_records(record_set)
-      end.flatten.sort
-      records.map(&:to_s).join("\n") + "\n"
+      @read = T.let(@read, T.nilable(String))
+      @read ||= begin
+        doc = REXML::Document.new(http.get(""))
+        records = doc.elements.collect("*/ResourceRecordSets/ResourceRecordSet") do |record_set|
+          to_records(record_set)
+        end.flatten.sort
+        records.map(&:to_s).join("\n") + "\n"
+      end
     end
 
     sig { params(record: Record).void }
@@ -65,12 +68,13 @@ module Zonesync
       el.elements.collect("ResourceRecords/ResourceRecord") do |rr|
         name = normalize_trailing_period(get_value(el, "Name"))
         type = get_value(el, "Type")
+        ttl = get_value(el, "TTL")
         rdata = get_value(rr, "Value")
 
         record = Record.new(
           name:,
           type:,
-          ttl: get_value(el, "TTL"),
+          ttl:,
           rdata:,
           comment: nil, # Route 53 does not have a direct comment field
         )
