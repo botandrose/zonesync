@@ -42,7 +42,17 @@ module Zonesync
     sig { params(record: Record).returns(T::Hash[String, String]) }
     def to_hash record
       hash = record.to_h
-      hash[:content] = hash.delete(:rdata)
+      content = hash.delete(:rdata)
+
+      if record.type == "MX"
+        # For MX records, split "priority hostname" into separate fields
+        priority, hostname = T.must(content).split(" ", 2)
+        hash[:priority] = priority.to_i
+        hash[:content] = hostname.sub(/\.$/, "") # remove trailing dot
+      else
+        hash[:content] = content
+      end
+
       hash[:comment] = hash.delete(:comment) # maintain original order
       hash
     end

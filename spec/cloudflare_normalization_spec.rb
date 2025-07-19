@@ -108,7 +108,7 @@ describe Zonesync::Cloudflare do
             "comment" => nil
           },
           {
-            "id" => "mx2", 
+            "id" => "mx2",
             "name" => "example.com",
             "type" => "MX",
             "content" => "route2.mx.cloudflare.net",
@@ -119,7 +119,7 @@ describe Zonesync::Cloudflare do
           {
             "id" => "mx3",
             "name" => "mail.example.com",
-            "type" => "MX", 
+            "type" => "MX",
             "content" => "mail.example.com",
             "priority" => 10,
             "ttl" => 1,
@@ -162,7 +162,7 @@ describe Zonesync::Cloudflare do
         ),
         Zonesync::Record.new(
           name: "mail.example.com.",
-          type: "MX", 
+          type: "MX",
           ttl: 1,
           rdata: "10 mail.example.com.",
           comment: nil
@@ -203,21 +203,80 @@ describe Zonesync::Cloudflare do
         zone_id: "test_zone",
         token: "test_token"
       }
-      
+
       cloudflare = described_class.new(config)
       allow(cloudflare).to receive(:http).and_return(http_client)
-      
+
       cloudflare_records = cloudflare.all.keys
-      
+
       # The MX records should match exactly
       source_records.each do |source_record|
-        matching_record = cloudflare_records.find { |cf_record| 
-          cf_record.name == source_record.name && 
+        matching_record = cloudflare_records.find { |cf_record|
+          cf_record.name == source_record.name &&
           cf_record.type == source_record.type &&
           cf_record.rdata == source_record.rdata
         }
         expect(matching_record).not_to be_nil, "Could not find matching record for #{source_record}"
       end
+    end
+  end
+
+  context "MX record to_hash conversion" do
+    it "splits MX record rdata into priority and content fields for CloudFlare API" do
+      # Create an MX record as zonesync would parse from Zonefile
+      mx_record = Zonesync::Record.new(
+        name: "example.com.",
+        type: "MX",
+        ttl: 3600,
+        rdata: "10 mail.example.com.",
+        comment: nil
+      )
+
+      cloudflare = described_class.new({})
+      result_hash = cloudflare.send(:to_hash, mx_record)
+
+      # CloudFlare API expects priority as integer and content without priority
+      expect(result_hash[:priority]).to eq(10)
+      expect(result_hash[:content]).to eq("mail.example.com")
+      expect(result_hash[:type]).to eq("MX")
+      expect(result_hash[:name]).to eq("example.com.")
+      expect(result_hash[:ttl]).to eq(3600)
+    end
+
+    it "handles MX records with trailing dots in hostname" do
+      mx_record = Zonesync::Record.new(
+        name: "bardtracker.com.",
+        type: "MX",
+        ttl: 1,
+        rdata: "33 route1.mx.cloudflare.net.",
+        comment: nil
+      )
+
+      cloudflare = described_class.new({})
+      result_hash = cloudflare.send(:to_hash, mx_record)
+
+      # Should remove trailing dot from hostname
+      expect(result_hash[:priority]).to eq(33)
+      expect(result_hash[:content]).to eq("route1.mx.cloudflare.net")
+    end
+
+    it "does not affect non-MX records" do
+      # Test that regular records still work correctly
+      a_record = Zonesync::Record.new(
+        name: "example.com.",
+        type: "A",
+        ttl: 3600,
+        rdata: "192.0.2.1",
+        comment: nil
+      )
+
+      cloudflare = described_class.new({})
+      result_hash = cloudflare.send(:to_hash, a_record)
+
+      # A records should have content, not priority
+      expect(result_hash[:content]).to eq("192.0.2.1")
+      expect(result_hash[:priority]).to be_nil
+      expect(result_hash[:type]).to eq("A")
     end
   end
 end
