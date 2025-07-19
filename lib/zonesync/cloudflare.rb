@@ -59,9 +59,6 @@ module Zonesync
       if %w[TXT SPF NAPTR].include?(attrs["type"])
         rdata = normalize_quoting(T.must(rdata))
       end
-      if attrs["type"] == "TXT"
-        rdata = normalize_quoting(T.must(rdata))
-      end
       Record.new(
         name: normalize_trailing_period(T.must(attrs["name"])),
         type: attrs["type"],
@@ -78,7 +75,7 @@ module Zonesync
 
     sig { params(value: String).returns(String) }
     def normalize_quoting value
-      value =~ /^".+"$/ ? value : %("#{value}") # handle quote wrapping
+      value = value =~ /^".+"$/ ? value : %("#{value}") # handle quote wrapping
       value.gsub('" "', "") # handle multiple txt record joining
     end
 
