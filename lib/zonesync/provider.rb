@@ -57,7 +57,7 @@ module Zonesync
 
     sig { returns(Zonefile) }
     private def zonefile
-      Zonefile.load(read)
+      @zonefile ||= T.let(Zonefile.load(read), T.nilable(Zonefile))
     end
 
     sig { returns(String) }
