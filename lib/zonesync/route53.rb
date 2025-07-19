@@ -32,7 +32,19 @@ module Zonesync
 
     sig { params(record: Record).void }
     def add(record)
-      change_record("CREATE", record)
+      add_with_duplicate_handling(record) do
+        begin
+          change_record("CREATE", record)
+        rescue RuntimeError => e
+          # Convert Route53-specific duplicate error to standard exception
+          if e.message.include?("RRSet already exists")
+            raise DuplicateRecordError.new(record, "Route53 duplicate record error")
+          else
+            # Re-raise other errors
+            raise
+          end
+        end
+      end
     end
 
     private

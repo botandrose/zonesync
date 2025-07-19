@@ -84,6 +84,20 @@ module Zonesync
     def add record
       Kernel.raise NotImplementedError
     end
+
+    # Helper method for graceful duplicate record handling
+    # Child classes can use this in their add method implementations
+    sig { params(record: Record, block: T.proc.void).void }
+    def add_with_duplicate_handling record, &block
+      begin
+        block.call
+      rescue DuplicateRecordError => e
+        # Gracefully handle duplicate records - this means the record
+        # already exists and we just want to start tracking it
+        puts "Record already exists in #{self.class.name}: #{e.record.name} #{e.record.type} - will start tracking it"
+        return
+      end
+    end
   end
 
   require "zonesync/cloudflare"

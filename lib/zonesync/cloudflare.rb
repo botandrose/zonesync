@@ -26,7 +26,19 @@ module Zonesync
 
     sig { params(record: Record).void }
     def add record
-      http.post("", to_hash(record))
+      add_with_duplicate_handling(record) do
+        begin
+          http.post("", to_hash(record))
+        rescue RuntimeError => e
+          # Convert CloudFlare-specific duplicate error to standard exception
+          if e.message.include?('"code":81058') && e.message.include?("An identical record already exists")
+            raise DuplicateRecordError.new(record, "CloudFlare error 81058")
+          else
+            # Re-raise other errors
+            raise
+          end
+        end
+      end
     end
 
     sig { returns(T::Hash[Record, String]) }

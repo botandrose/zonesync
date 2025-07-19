@@ -56,5 +56,25 @@ module Zonesync
       MSG
     end
   end
+
+  class DuplicateRecordError < StandardError
+    extend T::Sig
+
+    sig { params(record: Record, provider_message: T.nilable(String)).void }
+    def initialize record, provider_message = nil
+      @record = record
+      @provider_message = provider_message
+    end
+
+    sig { returns(String) }
+    def message
+      msg = "Record already exists: #{@record.name} #{@record.type}"
+      msg += " (#{@provider_message})" if @provider_message
+      msg
+    end
+
+    sig { returns(Record) }
+    attr_reader :record
+  end
 end
 

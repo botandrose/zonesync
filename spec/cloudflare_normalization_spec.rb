@@ -279,4 +279,98 @@ describe Zonesync::Cloudflare do
       expect(result_hash[:type]).to eq("A")
     end
   end
+
+  context "graceful duplicate record handling" do
+    it "handles 'identical record already exists' error gracefully" do
+      # Mock HTTP client that raises CloudFlare's duplicate record error
+      http_client = double("HTTP")
+      allow(http_client).to receive(:get).with("/..").and_return({
+        "result" => { "name" => "example.com" }
+      })
+
+      # Mock the add request to return CloudFlare's duplicate error
+      error_response = '{"result":null,"success":false,"errors":[{"code":81058,"message":"An identical record already exists."}],"messages":[]}'
+      allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
+
+      cloudflare = described_class.new({})
+      allow(cloudflare).to receive(:http).and_return(http_client)
+
+      mx_record = Zonesync::Record.new(
+        name: "mail.example.com.",
+        type: "MX",
+        ttl: 3600,
+        rdata: "10 mail.example.com.",
+        comment: nil
+      )
+
+      # Should not raise an error, should handle gracefully and print message
+      expect { cloudflare.add(mx_record) }.to output(/Record already exists in .*Cloudflare/).to_stdout
+      expect { cloudflare.add(mx_record) }.not_to raise_error
+    end
+
+    it "still raises other CloudFlare API errors" do
+      # Mock HTTP client that raises a different error
+      http_client = double("HTTP")
+      allow(http_client).to receive(:get).with("/..").and_return({
+        "result" => { "name" => "example.com" }
+      })
+
+      # Mock a different API error
+      error_response = '{"result":null,"success":false,"errors":[{"code":9999,"message":"Some other error."}],"messages":[]}'
+      allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
+
+      cloudflare = described_class.new({})
+      allow(cloudflare).to receive(:http).and_return(http_client)
+
+      mx_record = Zonesync::Record.new(
+        name: "mail.example.com.",
+        type: "MX",
+        ttl: 3600,
+        rdata: "10 mail.example.com.",
+        comment: nil
+      )
+
+      # Should still raise other errors
+      expect { cloudflare.add(mx_record) }.to raise_error(RuntimeError, /Some other error/)
+    end
+
+    it "converts CloudFlare duplicate errors to standard DuplicateRecordError" do
+      # Mock HTTP client that raises CloudFlare's duplicate record error
+      http_client = double("HTTP")
+      allow(http_client).to receive(:get).with("/..").and_return({
+        "result" => { "name" => "example.com" }
+      })
+
+      # Mock the add request to return CloudFlare's duplicate error
+      error_response = '{"result":null,"success":false,"errors":[{"code":81058,"message":"An identical record already exists."}],"messages":[]}'
+      allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
+
+      cloudflare = described_class.new({})
+      allow(cloudflare).to receive(:http).and_return(http_client)
+
+      # Override the add_with_duplicate_handling to capture the exception
+      captured_exception = nil
+      allow(cloudflare).to receive(:add_with_duplicate_handling) do |record, &block|
+        begin
+          block.call
+        rescue Zonesync::DuplicateRecordError => e
+          captured_exception = e
+        end
+      end
+
+      mx_record = Zonesync::Record.new(
+        name: "mail.example.com.",
+        type: "MX",
+        ttl: 3600,
+        rdata: "10 mail.example.com.",
+        comment: nil
+      )
+
+      cloudflare.add(mx_record)
+
+      expect(captured_exception).to be_a(Zonesync::DuplicateRecordError)
+      expect(captured_exception.record).to eq(mx_record)
+      expect(captured_exception.message).to include("CloudFlare error 81058")
+    end
+  end
 end
