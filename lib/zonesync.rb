@@ -17,14 +17,14 @@ rescue LoadError; end
 module Zonesync
   extend T::Sig
 
-  sig { params(source: T.nilable(String), destination: T.nilable(String), dry_run: T::Boolean).void }
-  def self.call source: "Zonefile", destination: "zonesync", dry_run: false
+  sig { params(source: T.nilable(String), destination: T.nilable(String), dry_run: T::Boolean, force: T::Boolean).void }
+  def self.call source: "Zonefile", destination: "zonesync", dry_run: false, force: false
     source = T.must(source)
     destination = T.must(destination).to_sym
     Sync.new(
       Provider.from({ provider: "Filesystem", path: source }),
       Provider.from(credentials(destination)),
-    ).call(dry_run: dry_run)
+    ).call(dry_run: dry_run, force: force)
   end
 
   sig { params(source: T.nilable(String), destination: T.nilable(String)).void }

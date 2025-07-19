@@ -7,9 +7,9 @@ module Zonesync
   Sync = Struct.new(:source, :destination) do
     extend T::Sig
 
-    sig { params(dry_run: T::Boolean).void }
-    def call dry_run: false
-      operations = destination.diff!(source)
+    sig { params(dry_run: T::Boolean, force: T::Boolean).void }
+    def call dry_run: false, force: false
+      operations = destination.diff!(source, force: force)
 
       smanifest = source.manifest.generate
       dmanifest = destination.manifest.existing

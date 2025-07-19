@@ -5,17 +5,17 @@ module Zonesync
   Validator = Struct.new(:operations, :destination) do
     extend T::Sig
 
-    sig { params(operations: T::Array[Operation], destination: Provider).void }
-    def self.call(operations, destination)
-      new(operations, destination).call
+    sig { params(operations: T::Array[Operation], destination: Provider, force: T::Boolean).void }
+    def self.call(operations, destination, force: false)
+      new(operations, destination).call(force: force)
     end
 
-    sig { void }
-    def call
+    sig { params(force: T::Boolean).void }
+    def call(force: false)
       if operations.any? && !manifest.existing?
         raise MissingManifestError.new(manifest.generate)
       end
-      if manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
+      if !force && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
         raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)
       end
       operations.each do |method, args|

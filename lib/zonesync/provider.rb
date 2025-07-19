@@ -23,10 +23,10 @@ module Zonesync
       Zonesync.const_get(config.fetch(:provider)).new(config)
     end
 
-    sig { params(other: Provider).returns(T::Array[Operation]) }
-    def diff! other
+    sig { params(other: Provider, force: T::Boolean).returns(T::Array[Operation]) }
+    def diff! other, force: false
       operations = diff(other).call
-      Validator.call(operations, self)
+      Validator.call(operations, self, force: force)
       operations
     end
 

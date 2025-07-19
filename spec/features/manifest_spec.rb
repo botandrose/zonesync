@@ -408,6 +408,39 @@ describe Zonesync::Sync do
       )
       expect { subject.call }.to raise_error(Zonesync::ChecksumMismatchError)
     end
+
+    it "succeeds with force flag" do
+      expect(destination).to receive(:change).with(
+        Zonesync::Record.new(
+          name: "zonesync_checksum.example.com.",
+          type: "TXT",
+          ttl: 3600,
+          rdata: '"BADCHECKSUM"',
+          comment: nil,
+        ),
+        Zonesync::Record.new(
+          name: "zonesync_checksum.example.com.",
+          type: "TXT",
+          ttl: 3600,
+          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
+          comment: nil,
+        )
+      )
+
+      described_class.new(
+        Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
+          $ORIGIN example.com.
+          $TTL 3600
+          @    A     192.0.2.1
+          ssh  A     192.0.2.1
+          mail A     192.0.2.3
+          www  CNAME example.com.
+          @    MX    10 mail.example.com.
+          @    MX    20 mail2.example.com.
+        RECORDS
+        destination,
+      ).call(force: true)
+    end
   end
 end
 
