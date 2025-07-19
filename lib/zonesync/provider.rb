@@ -25,12 +25,17 @@ module Zonesync
 
     sig { params(other: Provider).returns(T::Array[Operation]) }
     def diff! other
-      operations = Diff.call(
+      operations = diff(other).call
+      Validator.call(operations, self)
+      operations
+    end
+
+    sig { params(other: Provider).returns(Diff) }
+    def diff other
+      Diff.new(
         from: diffable_records,
         to: other.diffable_records,
       )
-      Validator.call(operations, self)
-      operations
     end
 
     sig { returns(T::Array[Record]) }
