@@ -12,7 +12,7 @@ module Zonesync
 
     sig { params(force: T::Boolean).void }
     def call(force: false)
-      if operations.any? && !manifest.existing?
+      if !force && operations.any? && !manifest.existing?
         raise MissingManifestError.new(manifest.generate)
       end
       if !force && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum

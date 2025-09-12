@@ -64,7 +64,7 @@ describe Zonesync::Validator do
       @                 A     192.0.2.1
     RECORDS
 
-    it "raises MissingManifestError regardless of force flag" do
+    it "raises MissingManifestError by default but not with force flag" do
       operations = [[:add, [Zonesync::Record.new(name: "test.example.com.", type: "A", ttl: 3600, rdata: "192.0.2.2", comment: nil)]]]
 
       expect {
@@ -73,7 +73,7 @@ describe Zonesync::Validator do
 
       expect {
         described_class.call(operations, destination, force: true)
-      }.to raise_error(Zonesync::MissingManifestError)
+      }.not_to raise_error
     end
   end
 end
