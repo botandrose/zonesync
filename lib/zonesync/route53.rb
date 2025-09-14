@@ -4,6 +4,7 @@ require "sorbet-runtime"
 require "zonesync/record"
 require "zonesync/http"
 require "rexml/document"
+require "erb"
 
 module Zonesync
   class Route53 < Provider
@@ -21,7 +22,58 @@ module Zonesync
 
     sig { params(record: Record).void }
     def remove(record)
-      change_record("DELETE", record)
+      if record.type == "TXT"
+        # Route53 requires all TXT records with the same name to be managed together
+        existing_txt_records = records.select do |r|
+          r.name == record.name && r.type == "TXT"
+        end
+
+        if existing_txt_records.length == 1
+          # Only one TXT record, delete it normally
+          change_record("DELETE", record)
+        else
+          # Multiple TXT records - delete all, then recreate without the removed one
+          remaining_txt_records = existing_txt_records.reject { |r| r == record }
+
+          # Use change_records to handle both DELETE and CREATE in one request
+          grouped = [
+            [existing_txt_records, "DELETE"],
+            [remaining_txt_records, "CREATE"]
+          ]
+
+          http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeBatch>
+                <Changes>
+                  <%- grouped.each do |records_list, action| -%>
+                  <%- records_grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] } -%>
+                  <%- records_grouped.each do |(name, type, ttl), group_records| -%>
+                  <Change>
+                    <Action><%= action %></Action>
+                    <ResourceRecordSet>
+                      <Name><%= name %></Name>
+                      <Type><%= type %></Type>
+                      <TTL><%= ttl %></TTL>
+                      <ResourceRecords>
+                        <%- group_records.each do |group_record| -%>
+                        <ResourceRecord>
+                          <Value><%= group_record.rdata %></Value>
+                        </ResourceRecord>
+                        <%- end -%>
+                      </ResourceRecords>
+                    </ResourceRecordSet>
+                  </Change>
+                  <%- end -%>
+                  <%- end -%>
+                </Changes>
+              </ChangeBatch>
+            </ChangeResourceRecordSetsRequest>
+          XML
+        end
+      else
+        change_record("DELETE", record)
+      end
     end
 
     sig { params(old_record: Record, new_record: Record).void }
@@ -34,7 +86,16 @@ module Zonesync
     def add(record)
       add_with_duplicate_handling(record) do
         begin
-          change_record("CREATE", record)
+          if record.type == "TXT"
+            # Route53 requires all TXT records with the same name to be combined into a single record set
+            existing_txt_records = records.select do |r|
+              r.name == record.name && r.type == "TXT"
+            end
+            all_txt_records = existing_txt_records + [record]
+            change_records("CREATE", all_txt_records)
+          else
+            change_record("CREATE", record)
+          end
         rescue RuntimeError => e
           # Convert Route53-specific duplicate error to standard exception
           if e.message.include?("RRSet already exists")
@@ -69,6 +130,39 @@ module Zonesync
                   </ResourceRecords>
                 </ResourceRecordSet>
               </Change>
+            </Changes>
+          </ChangeBatch>
+        </ChangeResourceRecordSetsRequest>
+      XML
+    end
+
+    sig { params(action: String, records_list: T::Array[Record]).void }
+    def change_records(action, records_list)
+      # Group records by name and type to handle multiple values
+      grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] }
+
+      http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
+        <?xml version="1.0" encoding="UTF-8"?>
+        <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+          <ChangeBatch>
+            <Changes>
+              <%- grouped.each do |(name, type, ttl), records| -%>
+              <Change>
+                <Action><%= action %></Action>
+                <ResourceRecordSet>
+                  <Name><%= name %></Name>
+                  <Type><%= type %></Type>
+                  <TTL><%= ttl %></TTL>
+                  <ResourceRecords>
+                    <%- records.each do |record| -%>
+                    <ResourceRecord>
+                      <Value><%= record.rdata %></Value>
+                    </ResourceRecord>
+                    <%- end -%>
+                  </ResourceRecords>
+                </ResourceRecordSet>
+              </Change>
+              <%- end -%>
             </Changes>
           </ChangeBatch>
         </ChangeResourceRecordSetsRequest>
