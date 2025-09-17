@@ -19,7 +19,7 @@ describe Zonesync::Sync do
     mail              IN A     192.0.2.3             ; IPv4 address for mail.example.com
     mail2             IN A     192.0.2.4             ; IPv4 address for mail2.example.com
     mail3             IN A     192.0.2.6             ; IPv4 address for mail3.example.com comment
-    zonesync_manifest IN TXT   "A:@,mail,mail2,mail3,ns,ssh;AAAA:@,ns;CNAME:www,wwwtest;MX:@ 10,@ 20"
+    zonesync_manifest IN TXT   "1r81el0,1olaaae,9pp0kg,1d71j6w,60oib3,1ahd1l,1rci27o,b55ux9,9vtk0b,8a2s09,ky0g92,tk3z21"
     zonesync_checksum IN TXT   "3e0c7bf5b2582d41e35d0916bad9fefaa8454c4db632c57f5df0b5edee57f4eb"
   RECORDS
 
@@ -70,14 +70,14 @@ describe Zonesync::Sync do
         name: "zonesync_manifest.example.com.",
         type: "TXT",
         ttl: 3600,
-        rdata: %("A:@,mail,mail2,mail3,ns,ssh;AAAA:@,ns;CNAME:www,wwwtest;MX:@ 10,@ 20"),
+        rdata: %("1r81el0,1olaaae,9pp0kg,1d71j6w,60oib3,1ahd1l,1rci27o,b55ux9,9vtk0b,8a2s09,ky0g92,tk3z21"),
         comment: nil,
       ),
       Zonesync::Record.new(
         name: "zonesync_manifest.example.com.",
         type: "TXT",
         ttl: 3600,
-        rdata: %("A:@,mail,mail2,mail3,ns;AAAA:@,ns;CNAME:www,wwwtest;MX:@ 10,@ 20,@ 50"),
+        rdata: %("1r81el0,60oib3,1ahd1l,yrds0e,b55ux9,1olaaae,9vtk0b,ky0g92,tk3z21,9pp0kg,1d71j6w,jbohfq"),
         comment: nil,
       )
     )

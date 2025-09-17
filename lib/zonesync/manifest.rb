@@ -2,6 +2,7 @@
 require "sorbet-runtime"
 
 require "zonesync/record"
+require "zonesync/record_hash"
 require "digest"
 
 module Zonesync
@@ -22,13 +23,7 @@ module Zonesync
 
     sig { returns(Zonesync::Record) }
     def generate
-      Record.new(
-        name: "zonesync_manifest.#{zone.origin}",
-        type: "TXT",
-        ttl: 3600,
-        rdata: generate_rdata,
-        comment: nil,
-      )
+      generate_v2
     end
 
     sig { returns(T.nilable(Zonesync::Record)) }
@@ -49,6 +44,18 @@ module Zonesync
       )
     end
 
+    sig { returns(Zonesync::Record) }
+    def generate_v2
+      hashes = diffable_records.map { |record| RecordHash.generate(record) }
+      Record.new(
+        name: "zonesync_manifest.#{zone.origin}",
+        type: "TXT",
+        ttl: 3600,
+        rdata: hashes.join(',').inspect,
+        comment: nil,
+      )
+    end
+
     sig { params(record: Zonesync::Record).returns(T::Boolean) }
     def diffable? record
       if existing?
@@ -61,16 +68,26 @@ module Zonesync
     sig { params(record: Zonesync::Record).returns(T::Boolean) }
     def matches? record
       return false unless existing?
-      hash = T.must(existing)
-        .rdata[1..-2] # remove quotes
-        .split(";")
-        .reduce({}) do |hash, pair|
-          type, short_names = pair.split(":")
-          hash[type] = short_names.split(",")
-          hash
-        end
-      shorthands = hash.fetch(record.type, [])
-      shorthands.include?(shorthand_for(record))
+      manifest_data = T.must(existing).rdata[1..-2] # remove quotes
+
+      # Check if this is v2 format (comma-separated hashes) or v1 format (type:names)
+      if manifest_data.include?(";")
+        # V1 format: "A:@,mail;CNAME:www;MX:@ 10,@ 20"
+        hash = manifest_data
+          .split(";")
+          .reduce({}) do |hash, pair|
+            type, short_names = pair.split(":")
+            hash[type] = short_names.split(",")
+            hash
+          end
+        shorthands = hash.fetch(record.type, [])
+        shorthands.include?(shorthand_for(record))
+      else
+        # V2 format: "1r81el0,60oib3,ky0g92,9pp0kg"
+        expected_hashes = manifest_data.split(",")
+        record_hash = RecordHash.generate(record)
+        expected_hashes.include?(record_hash)
+      end
     end
 
     sig { params(record: Zonesync::Record, with_type: T::Boolean).returns(String) }

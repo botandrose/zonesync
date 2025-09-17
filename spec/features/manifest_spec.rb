@@ -15,7 +15,7 @@ describe Zonesync::Sync do
       www               CNAME example.com.
       @                 MX    10 mail.example.com.
       @                 MX    20 mail2.example.com.
-      zonesync_manifest TXT   "A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"
+      zonesync_manifest TXT   "1r81el0,60oib3,8a2s09,ky0g92,9pp0kg,1d71j6w"
       zonesync_checksum TXT   "e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"
     RECORDS
 
@@ -51,14 +51,14 @@ describe Zonesync::Sync do
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"',
+          rdata: '"1r81el0,60oib3,8a2s09,ky0g92,9pp0kg,1d71j6w"',
           comment: nil,
         ),
         Zonesync::Record.new(
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20,@ 30"',
+          rdata: '"1r81el0,60oib3,8a2s09,ky0g92,9pp0kg,1d71j6w,1dtxj7k"',
           comment: nil,
         )
       )
@@ -108,7 +108,7 @@ describe Zonesync::Sync do
       www               CNAME example.com.
       @                 MX    10 mail.example.com.
       @                 MX    20 mail2.example.com.
-      zonesync_manifest TXT   "A:@,mail;CNAME:www;MX:@ 10"
+      zonesync_manifest TXT   "1r81el0,9pp0kg,60oib3,ky0g92"
       zonesync_checksum TXT   "733dbb245b6465e831b3d78b7a3e1d315124b3317febcaf8918c111e07b9809c"
     RECORDS
 
@@ -127,14 +127,14 @@ describe Zonesync::Sync do
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail;CNAME:www;MX:@ 10"',
+          rdata: '"1r81el0,9pp0kg,60oib3,ky0g92"',
           comment: nil,
         ),
         Zonesync::Record.new(
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail,test;CNAME:www;MX:@ 10"',
+          rdata: '"1r81el0,60oib3,1v0cfx0,ky0g92,9pp0kg"',
           comment: nil,
         )
       )
@@ -211,14 +211,14 @@ describe Zonesync::Sync do
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail;CNAME:www;MX:@ 10"',
+          rdata: '"1r81el0,9pp0kg,60oib3,ky0g92"',
           comment: nil,
         ),
         Zonesync::Record.new(
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail,www;MX:@ 10"',
+          rdata: '"1r81el0,60oib3,1rqeps,9pp0kg"',
           comment: nil,
         )
       )
@@ -267,14 +267,14 @@ describe Zonesync::Sync do
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail;CNAME:www;MX:@ 10"',
+          rdata: '"1r81el0,9pp0kg,60oib3,ky0g92"',
           comment: nil,
         ),
         Zonesync::Record.new(
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail;CNAME:www;MX:@ 10,@ 20"',
+          rdata: '"1r81el0,60oib3,ky0g92,9pp0kg,1d71j6w"',
           comment: nil,
         )
       )
@@ -346,7 +346,7 @@ describe Zonesync::Sync do
           name: "zonesync_manifest.example.com.",
           type: "TXT",
           ttl: 3600,
-          rdata: '"A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"',
+          rdata: '"1r81el0,60oib3,8a2s09,ky0g92,9pp0kg,1d71j6w"',
           comment: nil,
         )
       )
@@ -388,7 +388,7 @@ describe Zonesync::Sync do
       www               CNAME example.com.
       @                 MX    10 mail.example.com.
       @                 MX    20 mail2.example.com.
-      zonesync_manifest TXT   "A:@,mail,ssh;CNAME:www;MX:@ 10,@ 20"
+      zonesync_manifest TXT   "1r81el0,60oib3,8a2s09,ky0g92,9pp0kg,1d71j6w"
       zonesync_checksum TXT   "BADCHECKSUM"
     RECORDS
 
