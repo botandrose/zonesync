@@ -7,6 +7,7 @@ require "zonesync/provider"
 require "zonesync/cli"
 require "zonesync/rake"
 require "zonesync/errors"
+require "zonesync/record_hash"
 
 begin # optional active_support dependency
   require "active_support"
