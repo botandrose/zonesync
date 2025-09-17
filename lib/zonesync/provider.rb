@@ -98,6 +98,31 @@ module Zonesync
         return
       end
     end
+
+    private
+
+    sig { params(remote_records: T::Array[Record], expected_hashes: T::Array[String]).returns(T::Array[Record]) }
+    def hash_based_diffable_records(remote_records, expected_hashes)
+      require 'set'
+      expected_set = Set.new(expected_hashes)
+      found_set = Set.new
+      diffable = []
+
+      remote_records.each do |record|
+        hash = RecordHash.generate(record)
+        if expected_set.include?(hash)
+          found_set.add(hash)
+          diffable << record
+        end
+      end
+
+      missing = expected_set - found_set
+      if missing.any?
+        raise ConflictError.new(nil, diffable.first || remote_records.first)
+      end
+
+      diffable.sort
+    end
   end
 
   require "zonesync/cloudflare"
