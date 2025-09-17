@@ -377,7 +377,7 @@ describe Zonesync::Route53 do
               <ChangeBatch>
                 <Changes>
                   <Change>
-                    <Action>CREATE</Action>
+                    <Action>UPSERT</Action>
                     <ResourceRecordSet>
                       <Name>example.com.</Name>
                       <Type>TXT</Type>
@@ -555,6 +555,40 @@ describe Zonesync::Route53 do
         expect(subject).to receive(:add).with(new_record)
 
         subject.change(old_record, new_record)
+      end
+
+      it "should use UPSERT when adding TXT records to existing record set" do
+        # Mock existing TXT record already in Route53
+        allow(subject).to receive(:records).and_return([
+          Zonesync::Record.new(
+            name: "filmpreservation.org.",
+            type: "TXT",
+            ttl: 3600,
+            rdata: '"v=spf1 include:spf.protection.outlook.com include:networkforgood.com include:networkforgood.org -all"',
+            comment: nil
+          )
+        ])
+
+        # Expect UPSERT action instead of CREATE when records already exist
+        stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+          .with(body: /<Action>UPSERT<\/Action>.*filmpreservation\.org.*TXT/m)
+          .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeInfo><Id>/change/C2</Id><Status>PENDING</Status></ChangeInfo>
+            </ChangeResourceRecordSetsResponse>
+          XML
+
+        # This should succeed by using UPSERT instead of CREATE
+        expect {
+          subject.add(Zonesync::Record.new(
+            name: "filmpreservation.org.",
+            type: "TXT",
+            ttl: 3600,
+            rdata: '"google-site-verification=rL1dkEFaZtwNvLjL9XKbubgakru5aCxeNMw1xMRM40M"',
+            comment: nil
+          ))
+        }.not_to raise_error
       end
     end
   end

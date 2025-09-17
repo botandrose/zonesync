@@ -92,7 +92,10 @@ module Zonesync
               r.name == record.name && r.type == "TXT"
             end
             all_txt_records = existing_txt_records + [record]
-            change_records("CREATE", all_txt_records)
+
+            # Use UPSERT if records already exist, CREATE if they don't
+            action = existing_txt_records.empty? ? "CREATE" : "UPSERT"
+            change_records(action, all_txt_records)
           else
             change_record("CREATE", record)
           end
