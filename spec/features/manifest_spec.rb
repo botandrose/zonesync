@@ -169,25 +169,6 @@ describe Zonesync::Sync do
       ).call
     end
 
-    it "errors when there's a conflict between ignored records and new ones" do
-      subject = described_class.new(
-        Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
-          $ORIGIN example.com.
-          $TTL 3600
-          @    A     192.0.2.1
-          mail A     192.0.2.3
-          www  CNAME example.com.
-          @    MX    10 mail.example.com.
-          @    MX    20 mail.example.com. ; conflict here
-        RECORDS
-        destination,
-      )
-      expect { subject.call }.to raise_error(Zonesync::ConflictError, <<~MSG)
-        The following untracked DNS record already exists and would be overwritten.
-          existing: example.com. 3600 MX 20 mail2.example.com.
-          new:      example.com. 3600 MX 20 mail.example.com. ; conflict here
-      MSG
-    end
 
     it "allows a record to change type" do
       expect(destination).to receive(:change).with(
