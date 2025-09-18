@@ -65,6 +65,20 @@ module Zonesync
       end
     end
 
+    sig { returns(T::Boolean) }
+    def v1_format?
+      return false unless existing?
+      manifest_data = T.must(existing).rdata[1..-2]
+      # V1 format uses "TYPE:" syntax, v2 uses comma-separated hashes
+      manifest_data.include?(":") || manifest_data.include?(";")
+    end
+
+    sig { returns(T::Boolean) }
+    def v2_format?
+      return false unless existing?
+      !v1_format?
+    end
+
     sig { params(record: Zonesync::Record).returns(T::Boolean) }
     def matches? record
       return false unless existing?

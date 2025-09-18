@@ -137,4 +137,58 @@ describe Zonesync::Validator do
       }.not_to raise_error
     end
   end
+
+  context "with v2 hash-based manifest (checksum-free)" do
+    let(:destination_records) { <<~RECORDS }
+      $ORIGIN example.com.
+      $TTL 3600
+      @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+      @                 A     192.0.2.1
+      zonesync_manifest TXT   "1r81el0"
+    RECORDS
+
+    it "does not validate checksums for v2 manifests" do
+      operations = []
+      # Should not raise ChecksumMismatchError even though no checksum exists
+      expect {
+        described_class.call(operations, destination, force: false)
+      }.not_to raise_error
+    end
+
+    it "does not validate checksums even when checksum record exists" do
+      destination_with_checksum = Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS })
+        $ORIGIN example.com.
+        $TTL 3600
+        @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+        @                 A     192.0.2.1
+        zonesync_manifest TXT   "1r81el0"
+        zonesync_checksum TXT   "BADCHECKSUM"
+      RECORDS
+
+      operations = []
+      # Should not raise ChecksumMismatchError for v2 manifests even with bad checksum
+      expect {
+        described_class.call(operations, destination_with_checksum, force: false)
+      }.not_to raise_error
+    end
+  end
+
+  context "with v1 name-based manifest (checksum required)" do
+    let(:destination_records) { <<~RECORDS }
+      $ORIGIN example.com.
+      $TTL 3600
+      @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+      @                 A     192.0.2.1
+      zonesync_manifest TXT   "A:@"
+      zonesync_checksum TXT   "BADCHECKSUM"
+    RECORDS
+
+    it "still validates checksums for v1 manifests" do
+      operations = []
+      # Should still raise ChecksumMismatchError for v1 manifests
+      expect {
+        described_class.call(operations, destination, force: false)
+      }.to raise_error(Zonesync::ChecksumMismatchError)
+    end
+  end
 end

@@ -16,7 +16,8 @@ module Zonesync
       if !force && operations.any? && !manifest.existing?
         raise MissingManifestError.new(manifest.generate)
       end
-      if !force && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
+      # Only validate checksums for v1 manifests (v2 manifests provide integrity via hashes)
+      if !force && manifest.v1_format? && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
         raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)
       end
       operations.each do |method, args|

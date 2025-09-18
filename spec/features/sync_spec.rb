@@ -81,19 +81,12 @@ describe Zonesync::Sync do
         comment: nil,
       )
     )
-    expect_any_instance_of(Zonesync::Memory).to receive(:change).with(
+    expect_any_instance_of(Zonesync::Memory).to receive(:remove).with(
       Zonesync::Record.new(
         name: "zonesync_checksum.example.com.",
         type: "TXT",
         ttl: 3600,
         rdata: %("3e0c7bf5b2582d41e35d0916bad9fefaa8454c4db632c57f5df0b5edee57f4eb"),
-        comment: nil,
-      ),
-      Zonesync::Record.new(
-        name: "zonesync_checksum.example.com.",
-        type: "TXT",
-        ttl: 3600,
-        rdata: %("5e531bfddbc5204d117898c784e2194e2491139f7650015b3236542c6f2223e0"),
         comment: nil,
       )
     )

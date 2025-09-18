@@ -19,7 +19,18 @@ describe Zonesync::Sync do
       zonesync_checksum TXT   "e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"
     RECORDS
 
-    it "ignores manifest and checksum records if they match" do
+    it "removes legacy checksum when transitioning to v2 manifest" do
+      # Mock the remove method since Memory provider doesn't implement it
+      expect(destination).to receive(:remove).with(
+        Zonesync::Record.new(
+          name: "zonesync_checksum.example.com.",
+          type: "TXT",
+          ttl: 3600,
+          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
+          comment: nil
+        )
+      )
+
       described_class.new(
         Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
           $ORIGIN example.com.
@@ -35,7 +46,7 @@ describe Zonesync::Sync do
       ).call
     end
 
-    it "writes new manifest and checksum records if they don't match" do
+    it "updates manifest and removes checksum when transitioning to v2" do
       expect(destination).to receive(:add).with(
         Zonesync::Record.new(
           name: "example.com.",
@@ -62,19 +73,12 @@ describe Zonesync::Sync do
           comment: nil,
         )
       )
-      expect(destination).to receive(:change).with(
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
           rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
-          comment: nil,
-        ),
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"9d5d31d39853a80f897413ce33c3681cb54b89b149d0e3e5c39c1a2bd8d368ef"',
           comment: nil,
         )
       )
@@ -138,19 +142,12 @@ describe Zonesync::Sync do
           comment: nil,
         )
       )
-      expect(destination).to receive(:change).with(
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
           rdata: '"733dbb245b6465e831b3d78b7a3e1d315124b3317febcaf8918c111e07b9809c"',
-          comment: nil,
-        ),
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"900c4b3798a2c5dbedcf6609f1751a6934b1f236ddd5ec36a703273ff43cb223"',
           comment: nil,
         )
       )
@@ -203,19 +200,12 @@ describe Zonesync::Sync do
           comment: nil,
         )
       )
-      expect(destination).to receive(:change).with(
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
           rdata: '"733dbb245b6465e831b3d78b7a3e1d315124b3317febcaf8918c111e07b9809c"',
-          comment: nil,
-        ),
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"a504f9c291ea6ea5a5224900a140d5bcfeb804b956cfba659c93e57ca41109a3"',
           comment: nil,
         )
       )
@@ -259,19 +249,12 @@ describe Zonesync::Sync do
           comment: nil,
         )
       )
-      expect(destination).to receive(:change).with(
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
           rdata: '"733dbb245b6465e831b3d78b7a3e1d315124b3317febcaf8918c111e07b9809c"',
-          comment: nil,
-        ),
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"5dd5b30dc05db772219c17a7c9716261fab54a54e038f6084728eef0b359a617"',
           comment: nil,
         )
       )
@@ -331,15 +314,6 @@ describe Zonesync::Sync do
           comment: nil,
         )
       )
-      expect(destination).to receive(:add).with(
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
-          comment: nil,
-        )
-      )
 
       described_class.new(
         Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
@@ -373,8 +347,18 @@ describe Zonesync::Sync do
       zonesync_checksum TXT   "BADCHECKSUM"
     RECORDS
 
-    it "errors" do
-      subject = described_class.new(
+    it "removes legacy checksum when transitioning to v2" do
+      expect(destination).to receive(:remove).with(
+        Zonesync::Record.new(
+          name: "zonesync_checksum.example.com.",
+          type: "TXT",
+          ttl: 3600,
+          rdata: '"BADCHECKSUM"',
+          comment: nil,
+        )
+      )
+
+      described_class.new(
         Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS }),
           $ORIGIN example.com.
           $TTL 3600
@@ -386,24 +370,16 @@ describe Zonesync::Sync do
           @    MX    20 mail2.example.com.
         RECORDS
         destination,
-      )
-      expect { subject.call }.to raise_error(Zonesync::ChecksumMismatchError)
+      ).call
     end
 
     it "succeeds with force flag" do
-      expect(destination).to receive(:change).with(
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "zonesync_checksum.example.com.",
           type: "TXT",
           ttl: 3600,
           rdata: '"BADCHECKSUM"',
-          comment: nil,
-        ),
-        Zonesync::Record.new(
-          name: "zonesync_checksum.example.com.",
-          type: "TXT",
-          ttl: 3600,
-          rdata: '"e457cba2ded96c470f974b7060123dd66d6125375c61d7183a07a52a39ad5bf1"',
           comment: nil,
         )
       )
