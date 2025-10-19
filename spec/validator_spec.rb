@@ -444,5 +444,83 @@ describe Zonesync::Validator do
         end
       end
     end
+
+    context "with corrupted/malformed manifest" do
+      let(:source_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @  A  192.0.2.1
+      RECORDS
+
+      let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
+      context "when manifest is empty" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          @                 A     192.0.2.1
+          zonesync_manifest TXT   ""
+        RECORDS
+
+        it "does not raise error for empty manifest" do
+          operations = []
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "when manifest has trailing comma" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          @                 A     192.0.2.1
+          zonesync_manifest TXT   "1r81el0,"
+        RECORDS
+
+        it "does not raise error or treat empty string as missing hash" do
+          operations = []
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "when manifest has multiple consecutive commas" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          @                 A     192.0.2.1
+          zonesync_manifest TXT   "1r81el0,,,"
+        RECORDS
+
+        it "does not raise error or treat empty strings as missing hashes" do
+          operations = []
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "when manifest is just commas" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          @                 A     192.0.2.1
+          zonesync_manifest TXT   ",,,"
+        RECORDS
+
+        it "does not raise error" do
+          operations = []
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+    end
   end
 end
