@@ -3,21 +3,54 @@ require "sorbet-runtime"
 require "zonesync/record_hash"
 
 module Zonesync
-  class ConflictError < StandardError
+  class ValidationError < StandardError
     extend T::Sig
 
-    sig { params(existing: T.nilable(Record), new: Record).void }
-    def initialize existing, new
-      @existing = existing
-      @new = new
+    sig { void }
+    def initialize
+      @errors = T.let([], T::Array[StandardError])
+    end
+
+    sig { params(error: StandardError).void }
+    def add(error)
+      @errors << error
+    end
+
+    sig { returns(T::Boolean) }
+    def any?
+      @errors.any?
     end
 
     sig { returns(String) }
     def message
-      <<~MSG
-        The following untracked DNS record already exists and would be overwritten.
-          existing: #{@existing}
-          new:      #{@new}
+      @errors.map(&:message).join("\n\n#{'-' * 60}\n\n")
+    end
+
+    sig { returns(T::Array[StandardError]) }
+    attr_reader :errors
+  end
+
+  class ConflictError < StandardError
+    extend T::Sig
+
+    sig { params(conflicts: T::Array[[T.nilable(Record), Record]]).void }
+    def initialize(conflicts)
+      @conflicts = conflicts
+    end
+
+    sig { returns(String) }
+    def message
+      conflicts_text = @conflicts.sort_by { |_existing, new_rec| new_rec.name }.map do |existing_rec, new_rec|
+        "  existing: #{existing_rec}\n  new:      #{new_rec}"
+      end.join("\n\n")
+
+      count = @conflicts.length
+      record_word = count == 1 ? "record" : "records"
+      exists_word = count == 1 ? "exists" : "exist"
+
+      <<~MSG.chomp
+        The following untracked DNS #{record_word} already #{exists_word} and would be overwritten:
+        #{conflicts_text}
       MSG
     end
   end

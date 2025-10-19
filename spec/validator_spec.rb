@@ -716,6 +716,50 @@ describe Zonesync::Validator do
           }.not_to raise_error
         end
       end
+
+      context "multiple conflicts" do
+        it "should report all conflicts, not just the first one" do
+          # Remote has:
+          #   www CNAME old.example.com (untracked)
+          #   api CNAME old-api.example.com (untracked)
+          # Local wants to add:
+          #   www CNAME new.example.com (conflicts)
+          #   api CNAME new-api.example.com (conflicts)
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            www               CNAME old.example.com.
+            api               CNAME old-api.example.com.
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            www  CNAME new.example.com.
+            api  CNAME new-api.example.com.
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.to raise_error(Zonesync::ConflictError) do |error|
+            expect(error.message).to eq(<<~MSG.chomp)
+              The following untracked DNS records already exist and would be overwritten:
+                existing: api.example.com. 3600 CNAME old-api.example.com.
+                new:      api.example.com. 3600 CNAME new-api.example.com.
+
+                existing: www.example.com. 3600 CNAME old.example.com.
+                new:      www.example.com. 3600 CNAME new.example.com.
+            MSG
+          end
+        end
+      end
     end
   end
 end

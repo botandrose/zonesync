@@ -13,22 +13,32 @@ module Zonesync
 
     sig { params(force: T::Boolean).void }
     def call(force: false)
+      validation_error = ValidationError.new
+
       if !force && operations.any? && !manifest.existing?
-        raise MissingManifestError.new(manifest.generate)
+        validation_error.add(MissingManifestError.new(manifest.generate))
       end
-      # Only validate checksums for v1 manifests (v2 manifests provide integrity via hashes)
+
       if !force && manifest.v1_format? && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
-        raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)
+        validation_error.add(ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum))
       end
-      # Validate v2 manifest integrity - check that all tracked records still exist with expected hashes
+
       if !force && manifest.v2_format?
-        validate_v2_manifest_integrity
+        integrity_error = validate_v2_manifest_integrity
+        validation_error.add(integrity_error) if integrity_error
       end
-      operations.each do |method, args|
-        if method == :add
-          validate_addition args.first, force: force
-        end
+
+      conflicts = operations.map do |method, args|
+        method == :add ? validate_addition(args.first, force: force) : nil
+      end.compact
+      validation_error.add(ConflictError.new(conflicts)) if conflicts.any?
+
+      if validation_error.errors.length == 1
+        raise validation_error.errors.first
+      elsif validation_error.errors.length > 1
+        raise validation_error
       end
+
       nil
     end
 
@@ -39,7 +49,7 @@ module Zonesync
       destination.manifest
     end
 
-    sig { void }
+    sig { returns(T.nilable(ChecksumMismatchError)) }
     def validate_v2_manifest_integrity
       # Extract expected hashes from the v2 manifest
       manifest_data = T.must(manifest.existing).rdata[1..-2] # remove quotes
@@ -54,47 +64,47 @@ module Zonesync
       # Check if any expected hash is missing from actual hashes
       missing_hash = expected_hashes.find { |hash| !actual_hash_to_record.key?(hash) }
 
-      if missing_hash
-        # Find the expected record from source (if available)
-        expected_record = nil
-        if source
-          source_records = source.records.reject { |r| r.manifest? || r.checksum? }
-          expected_record = source_records.find { |r| RecordHash.generate(r) == missing_hash }
-        end
+      return nil unless missing_hash
 
-        # Check if there's a modified version (same name/type but different content)
-        # For CNAME and SOA, only one record per name is allowed, so check for modification
-        # For other types (A, AAAA, TXT, MX), only check if there's exactly one record
-        # with that name/type - if there are multiples, we can't determine which one it "became"
-        actual_record = nil
-        if expected_record
-          if expected_record.type == "CNAME" || expected_record.type == "SOA"
-            # These types only allow one record per name, so always check for modification
-            actual_record = actual_records.find do |r|
-              r.name == expected_record.name && r.type == expected_record.type
-            end
-          else
-            # For types that allow multiples, only treat as modification if there's exactly one
-            matching_records = actual_records.select do |r|
-              r.name == expected_record.name && r.type == expected_record.type
-            end
-            actual_record = matching_records.first if matching_records.count == 1
-          end
-        end
-
-        # Raise error with structured data
-        raise ChecksumMismatchError.new(
-          expected_record: expected_record,
-          actual_record: actual_record,
-          missing_hash: missing_hash
-        )
+      # Find the expected record from source (if available)
+      expected_record = nil
+      if source
+        source_records = source.records.reject { |r| r.manifest? || r.checksum? }
+        expected_record = source_records.find { |r| RecordHash.generate(r) == missing_hash }
       end
+
+      # Check if there's a modified version (same name/type but different content)
+      # For CNAME and SOA, only one record per name is allowed, so check for modification
+      # For other types (A, AAAA, TXT, MX), only check if there's exactly one record
+      # with that name/type - if there are multiples, we can't determine which one it "became"
+      actual_record = nil
+      if expected_record
+        if expected_record.type == "CNAME" || expected_record.type == "SOA"
+          # These types only allow one record per name, so always check for modification
+          actual_record = actual_records.find do |r|
+            r.name == expected_record.name && r.type == expected_record.type
+          end
+        else
+          # For types that allow multiples, only treat as modification if there's exactly one
+          matching_records = actual_records.select do |r|
+            r.name == expected_record.name && r.type == expected_record.type
+          end
+          actual_record = matching_records.first if matching_records.count == 1
+        end
+      end
+
+      # Return error with structured data
+      ChecksumMismatchError.new(
+        expected_record: expected_record,
+        actual_record: actual_record,
+        missing_hash: missing_hash
+      )
     end
 
-    sig { params(record: Record, force: T::Boolean).void }
+    sig { params(record: Record, force: T::Boolean).returns(T.nilable([T.nilable(Record), Record])) }
     def validate_addition record, force: false
-      return if manifest.matches?(record)
-      return if force
+      return nil if manifest.matches?(record)
+      return nil if force
 
       # Use hash-based conflict detection when we have a v2 manifest
       if manifest.existing? && !manifest.existing.rdata[1..-2].include?(";")
@@ -150,9 +160,9 @@ module Zonesync
         end
       end
 
-      return if !conflicting_record
-      return if conflicting_record == record
-      raise Zonesync::ConflictError.new(conflicting_record, record)
+      return nil if !conflicting_record
+      return nil if conflicting_record == record
+      [conflicting_record, record]
     end
   end
 end

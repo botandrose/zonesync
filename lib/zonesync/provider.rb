@@ -118,7 +118,7 @@ module Zonesync
 
       missing = expected_set - found_set
       if missing.any?
-        raise ConflictError.new(nil, diffable.first || remote_records.first)
+        raise ConflictError.new([[nil, diffable.first || remote_records.first]])
       end
 
       diffable.sort
