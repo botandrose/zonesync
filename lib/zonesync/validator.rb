@@ -63,10 +63,22 @@ module Zonesync
         end
 
         # Check if there's a modified version (same name/type but different content)
+        # For CNAME and SOA, only one record per name is allowed, so check for modification
+        # For other types (A, AAAA, TXT, MX), only check if there's exactly one record
+        # with that name/type - if there are multiples, we can't determine which one it "became"
         actual_record = nil
         if expected_record
-          actual_record = actual_records.find do |r|
-            r.name == expected_record.name && r.type == expected_record.type
+          if expected_record.type == "CNAME" || expected_record.type == "SOA"
+            # These types only allow one record per name, so always check for modification
+            actual_record = actual_records.find do |r|
+              r.name == expected_record.name && r.type == expected_record.type
+            end
+          else
+            # For types that allow multiples, only treat as modification if there's exactly one
+            matching_records = actual_records.select do |r|
+              r.name == expected_record.name && r.type == expected_record.type
+            end
+            actual_record = matching_records.first if matching_records.count == 1
           end
         end
 

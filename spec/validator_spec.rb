@@ -356,5 +356,93 @@ describe Zonesync::Validator do
         }.to raise_error(Zonesync::ChecksumMismatchError)
       end
     end
+
+    context "with multiple A records of same name" do
+      # Hash for www A 3600 1.1.1.1 is v8lzoe
+      # Hash for www A 3600 2.2.2.2 is 17pvyb4
+      # Hash for www A 3600 3.3.3.3 is v5dbkl
+      # Hash for www A 3600 4.4.4.4 is v5eixz
+
+      context "when one of multiple A records is deleted" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          www               A     1.1.1.1
+          www               A     2.2.2.2
+          zonesync_manifest TXT   "v8lzoe,17pvyb4,v5dbkl"
+        RECORDS
+
+        let(:source_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          www  A  1.1.1.1
+          www  A  2.2.2.2
+          www  A  3.3.3.3
+        RECORDS
+
+        let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
+        it "correctly identifies the deleted record, not another record with same name/type" do
+          operations = []
+          # Manifest tracks 3 www A records
+          # Destination has only 2 (3.3.3.3 was deleted)
+          # Should NOT show "Expected: 3.3.3.3, Actual: 1.1.1.1" - that would be wrong!
+          # Should show that 3.3.3.3 was deleted
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.to raise_error(Zonesync::ChecksumMismatchError) do |error|
+            expect(error.message).to eq(<<~MSG.chomp)
+              The following tracked DNS record has been deleted externally:
+                Expected: www.example.com. 3600 A 3.3.3.3 (hash: v5dbkl)
+                Not found in current remote records.
+
+              This probably means someone else has deleted it. Use --force to override.
+            MSG
+          end
+        end
+      end
+
+      context "when one of multiple A records is replaced (deleted and different one added)" do
+        let(:destination_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          www               A     1.1.1.1
+          www               A     2.2.2.2
+          www               A     4.4.4.4
+          zonesync_manifest TXT   "v8lzoe,17pvyb4,v5dbkl"
+        RECORDS
+
+        let(:source_records) { <<~RECORDS }
+          $ORIGIN example.com.
+          $TTL 3600
+          www  A  1.1.1.1
+          www  A  2.2.2.2
+          www  A  3.3.3.3
+        RECORDS
+
+        let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
+        it "correctly identifies this as a deletion, not a modification" do
+          operations = []
+          # Manifest tracks www A 3.3.3.3 (hash v5dbkl)
+          # But destination has www A 4.4.4.4 instead (hash v5eixz)
+          # These are NOT the same record - 3.3.3.3 was deleted and 4.4.4.4 was added
+          # Should show deletion of 3.3.3.3, NOT "Expected: 3.3.3.3, Actual: 4.4.4.4"
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.to raise_error(Zonesync::ChecksumMismatchError) do |error|
+            expect(error.message).to eq(<<~MSG.chomp)
+              The following tracked DNS record has been deleted externally:
+                Expected: www.example.com. 3600 A 3.3.3.3 (hash: v5dbkl)
+                Not found in current remote records.
+
+              This probably means someone else has deleted it. Use --force to override.
+            MSG
+          end
+        end
+      end
+    end
   end
 end
