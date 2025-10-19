@@ -26,7 +26,7 @@ module Zonesync
     sig { params(other: Provider, force: T::Boolean).returns(T::Array[Operation]) }
     def diff! other, force: false
       operations = diff(other).call
-      Validator.call(operations, self, force: force)
+      Validator.call(operations, self, other, force: force)
       operations
     end
 

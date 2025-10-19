@@ -207,19 +207,37 @@ describe Zonesync::Validator do
         zonesync_manifest TXT   "1r81el0,10v6j8z"
       RECORDS
 
+      let(:source_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @    A     192.0.2.1
+        ssh  A     192.0.2.2
+      RECORDS
+
+      let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
       it "raises ChecksumMismatchError when manifest hash doesn't match actual record" do
         operations = []
-        # Manifest says ssh should have hash 10v6j8z (192.0.2.2)
-        # But actual record has hash kqsxr1 (192.0.2.99)
+        # Manifest says ssh should have hash 10v6j8z (ssh.example.com. 3600 A 192.0.2.2)
+        # But destination has hash kqsxr1 (ssh.example.com. 3600 A 192.0.2.99)
         expect {
-          described_class.call(operations, destination, force: false)
-        }.to raise_error(Zonesync::ChecksumMismatchError)
+          described_class.call(operations, destination, source, force: false)
+        }.to raise_error(Zonesync::ChecksumMismatchError) do |error|
+          # Error should show which record was modified and what changed
+          expect(error.message).to eq(<<~MSG.chomp)
+            The following tracked DNS record has been modified externally:
+              Expected: ssh.example.com. 3600 A 192.0.2.2 (hash: 10v6j8z)
+              Actual:   ssh.example.com. 3600 A 192.0.2.99 (hash: kqsxr1)
+
+            This probably means someone else has changed it. Use --force to override.
+          MSG
+        end
       end
 
       it "does not raise error when force is true" do
         operations = []
         expect {
-          described_class.call(operations, destination, force: true)
+          described_class.call(operations, destination, source, force: true)
         }.not_to raise_error
       end
     end
@@ -233,13 +251,31 @@ describe Zonesync::Validator do
         zonesync_manifest TXT   "1r81el0,10v6j8z"
       RECORDS
 
+      let(:source_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @    A     192.0.2.1
+        ssh  A     192.0.2.2
+      RECORDS
+
+      let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
       it "raises ChecksumMismatchError when tracked record is missing" do
         operations = []
-        # Manifest says ssh should exist with hash 10v6j8z
-        # But ssh record is completely missing
+        # Manifest says ssh should exist with hash 10v6j8z (ssh.example.com. 3600 A 192.0.2.2)
+        # Source has ssh, but it's been deleted from destination
         expect {
-          described_class.call(operations, destination, force: false)
-        }.to raise_error(Zonesync::ChecksumMismatchError)
+          described_class.call(operations, destination, source, force: false)
+        }.to raise_error(Zonesync::ChecksumMismatchError) do |error|
+          # Error should show the expected record that's missing
+          expect(error.message).to eq(<<~MSG.chomp)
+            The following tracked DNS record has been deleted externally:
+              Expected: ssh.example.com. 3600 A 192.0.2.2 (hash: 10v6j8z)
+              Not found in current remote records.
+
+            This probably means someone else has deleted it. Use --force to override.
+          MSG
+        end
       end
     end
 
@@ -253,10 +289,19 @@ describe Zonesync::Validator do
         zonesync_manifest TXT   "1r81el0,10v6j8z"
       RECORDS
 
+      let(:source_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @    A     192.0.2.1
+        ssh  A     192.0.2.2
+      RECORDS
+
+      let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
       it "does not raise error when all hashes match" do
         operations = []
         expect {
-          described_class.call(operations, destination, force: false)
+          described_class.call(operations, destination, source, force: false)
         }.not_to raise_error
       end
     end
@@ -273,6 +318,14 @@ describe Zonesync::Validator do
         zonesync_manifest TXT   "1r81el0"
       RECORDS
 
+      let(:source_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @    A     192.0.2.1
+      RECORDS
+
+      let(:source) { Zonesync::Provider.from({ provider: "Memory", string: source_records }) }
+
       it "ignores untracked records and does not raise error" do
         operations = []
         # Manifest only tracks @ record (1r81el0)
@@ -280,7 +333,7 @@ describe Zonesync::Validator do
         # The integrity check should only validate that @ still exists and hasn't changed
         # It should completely ignore the untracked www record
         expect {
-          described_class.call(operations, destination, force: false)
+          described_class.call(operations, destination, source, force: false)
         }.not_to raise_error
       end
 
@@ -299,7 +352,7 @@ describe Zonesync::Validator do
         # But @ was changed to 192.0.2.99 (different hash)
         # Even though www is untracked, the check should still catch the modified @ record
         expect {
-          described_class.call(operations, destination_with_modified_tracked, force: false)
+          described_class.call(operations, destination_with_modified_tracked, source, force: false)
         }.to raise_error(Zonesync::ChecksumMismatchError)
       end
     end

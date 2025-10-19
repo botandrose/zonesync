@@ -3,12 +3,12 @@ require "sorbet-runtime"
 require "zonesync/record_hash"
 
 module Zonesync
-  Validator = Struct.new(:operations, :destination) do
+  Validator = Struct.new(:operations, :destination, :source) do
     extend T::Sig
 
-    sig { params(operations: T::Array[Operation], destination: Provider, force: T::Boolean).void }
-    def self.call(operations, destination, force: false)
-      new(operations, destination).call(force: force)
+    sig { params(operations: T::Array[Operation], destination: Provider, source: T.nilable(Provider), force: T::Boolean).void }
+    def self.call(operations, destination, source = nil, force: false)
+      new(operations, destination, source).call(force: force)
     end
 
     sig { params(force: T::Boolean).void }
@@ -45,16 +45,37 @@ module Zonesync
       manifest_data = T.must(manifest.existing).rdata[1..-2] # remove quotes
       expected_hashes = manifest_data.split(",")
 
-      # Get actual hashes of all records currently in destination (excluding manifest/checksum records)
-      actual_hashes = destination.records.reject { |r| r.manifest? || r.checksum? }
-                                          .map { |r| RecordHash.generate(r) }
+      # Get actual records in destination (excluding manifest/checksum records)
+      actual_records = destination.records.reject { |r| r.manifest? || r.checksum? }
+
+      # Build a map of hash to record for quick lookup
+      actual_hash_to_record = actual_records.map { |r| [RecordHash.generate(r), r] }.to_h
 
       # Check if any expected hash is missing from actual hashes
-      missing_hashes = expected_hashes - actual_hashes
+      missing_hash = expected_hashes.find { |hash| !actual_hash_to_record.key?(hash) }
 
-      if missing_hashes.any?
-        # A tracked record has been modified or deleted externally
-        raise ChecksumMismatchError.new(manifest.existing, manifest.generate)
+      if missing_hash
+        # Find the expected record from source (if available)
+        expected_record = nil
+        if source
+          source_records = source.records.reject { |r| r.manifest? || r.checksum? }
+          expected_record = source_records.find { |r| RecordHash.generate(r) == missing_hash }
+        end
+
+        # Check if there's a modified version (same name/type but different content)
+        actual_record = nil
+        if expected_record
+          actual_record = actual_records.find do |r|
+            r.name == expected_record.name && r.type == expected_record.type
+          end
+        end
+
+        # Raise error with structured data
+        raise ChecksumMismatchError.new(
+          expected_record: expected_record,
+          actual_record: actual_record,
+          missing_hash: missing_hash
+        )
       end
     end
 
