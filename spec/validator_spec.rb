@@ -522,5 +522,200 @@ describe Zonesync::Validator do
         end
       end
     end
+
+    context "v2 hash-based conflict detection when adding records" do
+      let(:source) do
+        zonefile = <<~RECORDS
+          $ORIGIN example.com.
+          $TTL 3600
+          @     A     192.0.2.1
+        RECORDS
+        Zonesync::Provider.from({ provider: "Memory", string: zonefile })
+      end
+
+      context "CNAME conflicts" do
+        it "should detect conflict when adding CNAME and untracked CNAME exists with same name" do
+          # Remote has: www CNAME old.example.com (untracked)
+          # Manifest tracks only @ A record
+          # Local wants to add: www CNAME new.example.com
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            www               CNAME old.example.com.
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            www  CNAME new.example.com.
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.to raise_error(Zonesync::ConflictError) do |error|
+            expect(error.message).to include("www.example.com.")
+            expect(error.message).to include("CNAME")
+            expect(error.message).to include("old.example.com")
+          end
+        end
+
+        it "should not conflict when adding CNAME and tracked CNAME exists with same name" do
+          # Remote has: www CNAME old.example.com (tracked in manifest)
+          # Local wants to change: www CNAME new.example.com
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            www               CNAME old.example.com.
+            zonesync_manifest TXT   "1r81el0,11xobsr"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            www  CNAME new.example.com.
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          # Should propose change, not raise conflict error
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "A record conflicts" do
+        it "should not conflict when adding A record and untracked A record exists with same name" do
+          # Remote has: www A 1.1.1.1 (untracked)
+          # Local wants to add: www A 2.2.2.2
+          # Multiple A records are allowed, so no conflict
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            www               A     1.1.1.1
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            www  A     2.2.2.2
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "MX record conflicts" do
+        it "should detect conflict when adding MX with same name and same priority as untracked MX" do
+          # Remote has: @ MX 10 mail.example.com (untracked)
+          # Local wants to add: @ MX 10 mail2.example.com
+          # Same priority = conflict
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            @                 MX    10 mail.example.com.
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            @    MX    10 mail2.example.com.
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.to raise_error(Zonesync::ConflictError) do |error|
+            expect(error.message).to include("example.com.")
+            expect(error.message).to include("MX")
+            expect(error.message).to include("10 mail.example.com")
+          end
+        end
+
+        it "should not conflict when adding MX with same name but different priority than untracked MX" do
+          # Remote has: @ MX 10 mail.example.com (untracked)
+          # Local wants to add: @ MX 20 mail2.example.com
+          # Different priority = no conflict
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            @                 MX    10 mail.example.com.
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            @    MX    20 mail2.example.com.
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+
+      context "adding identical record" do
+        it "should not conflict when adding exact duplicate of untracked record" do
+          # Remote has: www A 1.1.1.1 (untracked)
+          # Local wants to add: www A 1.1.1.1 (identical)
+          # This means we just want to start tracking it
+          remote_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @                 A     192.0.2.1
+            www               A     1.1.1.1
+            zonesync_manifest TXT   "1r81el0"
+          RECORDS
+          destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
+
+          local_zonefile = <<~RECORDS
+            $ORIGIN example.com.
+            $TTL 3600
+            @    A     192.0.2.1
+            www  A     1.1.1.1
+          RECORDS
+          source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
+
+          operations = destination.diff(source).call
+
+          expect {
+            described_class.call(operations, destination, source, force: false)
+          }.not_to raise_error
+        end
+      end
+    end
   end
 end
