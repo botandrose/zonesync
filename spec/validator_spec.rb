@@ -191,4 +191,117 @@ describe Zonesync::Validator do
       }.to raise_error(Zonesync::ChecksumMismatchError)
     end
   end
+
+  context "with v2 manifest integrity validation" do
+    # Hash for @ A 3600 192.0.2.1 is 1r81el0
+    # Hash for ssh A 3600 192.0.2.2 is 10v6j8z
+    # Hash for ssh A 3600 192.0.2.99 is kqsxr1 (modified version)
+
+    context "when tracked record has been modified externally" do
+      let(:destination_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+        @                 A     192.0.2.1
+        ssh               A     192.0.2.99
+        zonesync_manifest TXT   "1r81el0,10v6j8z"
+      RECORDS
+
+      it "raises ChecksumMismatchError when manifest hash doesn't match actual record" do
+        operations = []
+        # Manifest says ssh should have hash 10v6j8z (192.0.2.2)
+        # But actual record has hash kqsxr1 (192.0.2.99)
+        expect {
+          described_class.call(operations, destination, force: false)
+        }.to raise_error(Zonesync::ChecksumMismatchError)
+      end
+
+      it "does not raise error when force is true" do
+        operations = []
+        expect {
+          described_class.call(operations, destination, force: true)
+        }.not_to raise_error
+      end
+    end
+
+    context "when tracked record has been deleted externally" do
+      let(:destination_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+        @                 A     192.0.2.1
+        zonesync_manifest TXT   "1r81el0,10v6j8z"
+      RECORDS
+
+      it "raises ChecksumMismatchError when tracked record is missing" do
+        operations = []
+        # Manifest says ssh should exist with hash 10v6j8z
+        # But ssh record is completely missing
+        expect {
+          described_class.call(operations, destination, force: false)
+        }.to raise_error(Zonesync::ChecksumMismatchError)
+      end
+    end
+
+    context "when all tracked records match" do
+      let(:destination_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+        @                 A     192.0.2.1
+        ssh               A     192.0.2.2
+        zonesync_manifest TXT   "1r81el0,10v6j8z"
+      RECORDS
+
+      it "does not raise error when all hashes match" do
+        operations = []
+        expect {
+          described_class.call(operations, destination, force: false)
+        }.not_to raise_error
+      end
+    end
+
+    context "when untracked records exist (added externally)" do
+      # Hash for @ A 3600 192.0.2.1 is 1r81el0
+      # Hash for www A 3600 192.0.2.10 is 1vxweh9 (untracked - added externally)
+      let(:destination_records) { <<~RECORDS }
+        $ORIGIN example.com.
+        $TTL 3600
+        @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+        @                 A     192.0.2.1
+        www               A     192.0.2.10
+        zonesync_manifest TXT   "1r81el0"
+      RECORDS
+
+      it "ignores untracked records and does not raise error" do
+        operations = []
+        # Manifest only tracks @ record (1r81el0)
+        # www record (1vxweh9) was added externally and is NOT in manifest
+        # The integrity check should only validate that @ still exists and hasn't changed
+        # It should completely ignore the untracked www record
+        expect {
+          described_class.call(operations, destination, force: false)
+        }.not_to raise_error
+      end
+
+      it "still detects if a tracked record is modified even with untracked records present" do
+        destination_with_modified_tracked = Zonesync::Provider.from({ provider: "Memory", string: <<~RECORDS })
+          $ORIGIN example.com.
+          $TTL 3600
+          @                 SOA   ns.example.com. username.example.com. ( 2007120710 1d 2h 4w 1h )
+          @                 A     192.0.2.99
+          www               A     192.0.2.10
+          zonesync_manifest TXT   "1r81el0"
+        RECORDS
+
+        operations = []
+        # Manifest tracks @ with hash 1r81el0 (192.0.2.1)
+        # But @ was changed to 192.0.2.99 (different hash)
+        # Even though www is untracked, the check should still catch the modified @ record
+        expect {
+          described_class.call(operations, destination_with_modified_tracked, force: false)
+        }.to raise_error(Zonesync::ChecksumMismatchError)
+      end
+    end
+  end
 end

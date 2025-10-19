@@ -20,6 +20,10 @@ module Zonesync
       if !force && manifest.v1_format? && manifest.existing_checksum && manifest.existing_checksum != manifest.generate_checksum
         raise ChecksumMismatchError.new(manifest.existing_checksum, manifest.generate_checksum)
       end
+      # Validate v2 manifest integrity - check that all tracked records still exist with expected hashes
+      if !force && manifest.v2_format?
+        validate_v2_manifest_integrity
+      end
       operations.each do |method, args|
         if method == :add
           validate_addition args.first, force: force
@@ -33,6 +37,25 @@ module Zonesync
     sig { returns(Manifest) }
     def manifest
       destination.manifest
+    end
+
+    sig { void }
+    def validate_v2_manifest_integrity
+      # Extract expected hashes from the v2 manifest
+      manifest_data = T.must(manifest.existing).rdata[1..-2] # remove quotes
+      expected_hashes = manifest_data.split(",")
+
+      # Get actual hashes of all records currently in destination (excluding manifest/checksum records)
+      actual_hashes = destination.records.reject { |r| r.manifest? || r.checksum? }
+                                          .map { |r| RecordHash.generate(r) }
+
+      # Check if any expected hash is missing from actual hashes
+      missing_hashes = expected_hashes - actual_hashes
+
+      if missing_hashes.any?
+        # A tracked record has been modified or deleted externally
+        raise ChecksumMismatchError.new(manifest.existing, manifest.generate)
+      end
     end
 
     sig { params(record: Record, force: T::Boolean).void }
