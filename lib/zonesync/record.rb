@@ -53,6 +53,37 @@ module Zonesync
       string << " ; #{comment}" if comment
       string
     end
+
+    sig { params(other: Record).returns(T::Boolean) }
+    def identical_to?(other)
+      name == other.name && type == other.type && ttl == other.ttl && rdata == other.rdata
+    end
+
+    sig { params(other: Record).returns(T::Boolean) }
+    def conflicts_with?(other)
+      return false unless name == other.name && type == other.type
+
+      case type
+      when "CNAME", "SOA"
+        true
+      when "MX"
+        existing_priority = rdata.split(' ').first
+        new_priority = other.rdata.split(' ').first
+        existing_priority == new_priority
+      else
+        false
+      end
+    end
+
+    sig { params(type: String).returns(T::Boolean) }
+    def self.single_record_per_name?(type)
+      type == "CNAME" || type == "SOA"
+    end
+
+    sig { params(records: T::Array[Record]).returns(T::Array[Record]) }
+    def self.non_meta(records)
+      records.reject { |r| r.manifest? || r.checksum? }
+    end
   end
 end
 
