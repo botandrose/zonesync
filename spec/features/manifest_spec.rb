@@ -167,15 +167,17 @@ describe Zonesync::Sync do
     end
 
 
-    it "allows a record to change type" do
-      expect(destination).to receive(:change).with(
+    it "treats record type changes as remove + add since name+type is the primary key" do
+      expect(destination).to receive(:remove).with(
         Zonesync::Record.new(
           name: "www.example.com.",
           type: "CNAME",
           ttl: 3600,
           rdata: "example.com.",
           comment: nil,
-        ),
+        )
+      )
+      expect(destination).to receive(:add).with(
         Zonesync::Record.new(
           name: "www.example.com.",
           type: "A",

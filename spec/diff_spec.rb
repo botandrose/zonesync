@@ -87,6 +87,43 @@ describe Zonesync::Diff do
         )]
       ]])
     end
+
+    it "does not treat record renames as changes" do
+      # When record names change but rdata stays the same, these should be REMOVE + ADD
+      # operations, NOT change operations. You can't "change" server1 into web1.
+      from = build(<<~RECORDS)
+        server1  A 1.2.3.4
+        server2  A 1.2.3.4
+        server3  A 1.2.3.4
+      RECORDS
+      to = build(<<~RECORDS)
+        web1  A 1.2.3.4
+        web2  A 1.2.3.4
+        web3  A 1.2.3.4
+      RECORDS
+
+      ops = described_class.call(from: from, to: to)
+
+      # Should be 3 removes + 3 adds, NOT 3 changes
+      expect(ops).to contain_exactly(
+        [:remove, [Zonesync::Record.new(name: "server1.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+        [:remove, [Zonesync::Record.new(name: "server2.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+        [:remove, [Zonesync::Record.new(name: "server3.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+        [:add, [Zonesync::Record.new(name: "web1.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+        [:add, [Zonesync::Record.new(name: "web2.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+        [:add, [Zonesync::Record.new(name: "web3.example.com.", type: "A", ttl: 3600, rdata: "1.2.3.4")]],
+      )
+
+      # Ensure NO operations incorrectly change names
+      ops.each do |operation, records|
+        if operation == :change
+          expect(records[0].name).to eq(records[1].name),
+            "CHANGE operations must keep the same name. Got: #{records[0].name} -> #{records[1].name}"
+          expect(records[0].type).to eq(records[1].type),
+            "CHANGE operations must keep the same type"
+        end
+      end
+    end
   end
 end
 
