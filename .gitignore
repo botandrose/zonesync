@@ -24,3 +24,4 @@ mkmf.log
 .direnv/
 .ruby-version
 Gemfile.lock
+bin/
