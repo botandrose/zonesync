@@ -66,7 +66,7 @@ describe Zonesync::Cloudflare do
 
       expect(subject.read).to eq(<<~ZONEFILE)
         example.com. 1 SOA example.com admin.example.com 2000010101 1 1 1 1
-        example.com. 3600 A 198.51.100.4 ; cf-proxied:false Domain verification record
+        example.com. 3600 A 198.51.100.4 ; cf_tags=cf-proxied:false Domain verification record
       ZONEFILE
     end
   end

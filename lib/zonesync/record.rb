@@ -7,9 +7,9 @@ module Zonesync
 
     sig { params(record: Zonesync::Parser::Record).returns(Record) }
     def self.from_dns_zonefile_record record
-      # Parse cf-proxied tag from comment if present
+      # Parse cf-proxied tag from cf_tags comment if present
       proxied = nil
-      if record.comment && record.comment.match(/\bcf-proxied:(true|false)\b/)
+      if record.comment && record.comment.match(/\bcf_tags=.*cf-proxied:(true|false)\b/)
         proxied = record.comment.match(/\bcf-proxied:(true|false)\b/)[1] == "true"
       end
 
@@ -58,15 +58,15 @@ module Zonesync
     def to_s
       string = [name, ttl, type, rdata].join(" ")
 
-      # Build comment with cf-proxied tag if needed
+      # Build comment with cf_tags if needed
       comment_parts = []
       if proxied != nil
-        comment_parts << "cf-proxied:#{proxied}"
+        comment_parts << "cf_tags=cf-proxied:#{proxied}"
       end
-      if comment && !comment.match(/\bcf-proxied:(true|false)\b/)
+      if comment && !comment.match(/\bcf_tags=.*cf-proxied:(true|false)\b/)
         comment_parts << comment
       elsif comment
-        # If comment already has cf-proxied, use it as-is
+        # If comment already has cf_tags with cf-proxied, use it as-is
         comment_parts = [comment]
       end
 
