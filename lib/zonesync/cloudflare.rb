@@ -55,6 +55,7 @@ module Zonesync
     def to_hash record
       hash = record.to_h
       content = hash.delete(:rdata)
+      proxied = hash.delete(:proxied)
 
       if record.type == "MX"
         # For MX records, split "priority hostname" into separate fields
@@ -63,6 +64,11 @@ module Zonesync
         hash[:content] = hostname.sub(/\.$/, "") # remove trailing dot
       else
         hash[:content] = content
+      end
+
+      # Include proxied field after content if set
+      if proxied != nil
+        hash[:proxied] = proxied
       end
 
       hash[:comment] = hash.delete(:comment) # maintain original order
@@ -81,12 +87,20 @@ module Zonesync
       if %w[TXT SPF NAPTR].include?(attrs["type"])
         rdata = normalize_quoting(T.must(rdata))
       end
+
+      # Read proxied field from API response
+      proxied = nil
+      if attrs.key?("proxied")
+        proxied = attrs["proxied"] == true || attrs["proxied"] == "true"
+      end
+
       Record.new(
         name: normalize_trailing_period(T.must(attrs["name"])),
         type: attrs["type"],
         ttl: attrs["ttl"].to_i,
         rdata:,
         comment: attrs["comment"],
+        proxied: proxied,
       )
     end
 

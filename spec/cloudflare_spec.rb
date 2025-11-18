@@ -66,7 +66,7 @@ describe Zonesync::Cloudflare do
 
       expect(subject.read).to eq(<<~ZONEFILE)
         example.com. 1 SOA example.com admin.example.com 2000010101 1 1 1 1
-        example.com. 3600 A 198.51.100.4 ; Domain verification record
+        example.com. 3600 A 198.51.100.4 ; cf-proxied:false Domain verification record
       ZONEFILE
     end
   end
@@ -95,6 +95,7 @@ describe Zonesync::Cloudflare do
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
+        proxied: false,
       ))
     end
   end
@@ -108,6 +109,7 @@ describe Zonesync::Cloudflare do
             "type": "A",
             "ttl": 7200,
             "content": "198.51.100.4",
+            "proxied": false,
             "comment": "Domain verification record",
           }),
           headers: {
@@ -129,12 +131,14 @@ describe Zonesync::Cloudflare do
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
+        proxied: false,
       ), Zonesync::Record.new(
         name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
+        proxied: false,
       ))
     end
   end
@@ -148,6 +152,7 @@ describe Zonesync::Cloudflare do
             "type": "A",
             "ttl": 3600,
             "content": "198.51.100.4",
+            "proxied": true,
             "comment": "Domain verification record",
           }),
           headers: {
@@ -169,6 +174,7 @@ describe Zonesync::Cloudflare do
         ttl: 3600,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
+        proxied: true,
       ))
     end
   end
