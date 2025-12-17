@@ -1,5 +1,4 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "zonesync/record"
 require "zonesync/http"
@@ -8,9 +7,7 @@ require "erb"
 
 module Zonesync
   class Route53 < Provider
-    sig { returns(String) }
     def read
-      @read = T.let(@read, T.nilable(String))
       @read ||= begin
         doc = REXML::Document.new(http.get(""))
         records = doc.elements.collect("*/ResourceRecordSets/ResourceRecordSet") do |record_set|
@@ -20,7 +17,6 @@ module Zonesync
       end
     end
 
-    sig { params(record: Record).void }
     def remove(record)
       if record.type == "TXT"
         # Route53 requires all TXT records with the same name to be managed together
@@ -76,13 +72,11 @@ module Zonesync
       end
     end
 
-    sig { params(old_record: Record, new_record: Record).void }
     def change(old_record, new_record)
       remove(old_record)
       add(new_record)
     end
 
-    sig { params(record: Record).void }
     def add(record)
       add_with_duplicate_handling(record) do
         begin
@@ -113,7 +107,6 @@ module Zonesync
 
     private
 
-    sig { params(action: String, record: Record).void }
     def change_record(action, record)
       http.post("", <<~XML)
         <?xml version="1.0" encoding="UTF-8"?>
@@ -139,7 +132,6 @@ module Zonesync
       XML
     end
 
-    sig { params(action: String, records_list: T::Array[Record]).void }
     def change_records(action, records_list)
       # Group records by name and type to handle multiple values
       grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] }
@@ -172,7 +164,6 @@ module Zonesync
       XML
     end
 
-    sig { params(el: REXML::Element).returns(T::Array[Record]) }
     def to_records(el)
       el.elements.collect("ResourceRecords/ResourceRecord") do |rr|
         name = normalize_trailing_period(get_value(el, "Name"))
@@ -181,38 +172,34 @@ module Zonesync
         rdata = get_value(rr, "Value")
 
         record = Record.new(
-          name:,
-          type:,
-          ttl:,
-          rdata:,
+          name: name,
+          type: type,
+          ttl: ttl,
+          rdata: rdata,
           comment: nil, # Route 53 does not have a direct comment field
         )
       end
     end
 
-    sig { params(el: REXML::Element, field: String).returns(String) }
-    def get_value el, field
+    def get_value(el, field)
       el.elements[field].text.gsub(/\\(\d{3})/) { $1.to_i(8).chr } # unescape octal
     end
 
-    sig { params(value: String).returns(String) }
     def normalize_trailing_period(value)
       value =~ /\.$/ ? value : value + "."
     end
 
-    sig { returns(HTTP) }
     def http
       return @http if @http
-      @http = T.let(HTTP.new("https://route53.amazonaws.com/2013-04-01/hostedzone/#{config.fetch(:hosted_zone_id)}/rrset"), T.nilable(Zonesync::HTTP))
-      T.must(@http).before_request do |request, uri, body|
+      @http = HTTP.new("https://route53.amazonaws.com/2013-04-01/hostedzone/#{config.fetch(:hosted_zone_id)}/rrset")
+      @http.before_request do |request, uri, body|
         request["Content-Type"] = "application/xml"
         request["X-Amz-Date"] = Time.now.utc.strftime("%Y%m%dT%H%M%SZ")
         request["Authorization"] = sign_request(request.method, uri, body)
       end
-      T.must(@http)
+      @http
     end
 
-    sig { params(method: String, uri: URI::HTTPS, body: T.nilable(String)).returns(String) }
     def sign_request(method, uri, body)
       service = "route53"
       date = Time.now.utc.strftime("%Y%m%d")
@@ -246,7 +233,6 @@ module Zonesync
       "#{algorithm} Credential=#{config.fetch(:aws_access_key_id)}/#{credential_scope}, SignedHeaders=#{signed_headers}, Signature=#{signature}"
     end
 
-    sig { params(key: String, date_stamp: String, region_name: String, service_name: String).returns(String) }
     def get_signature_key(key, date_stamp, region_name, service_name)
       k_date = OpenSSL::HMAC.digest("SHA256", "AWS4" + key, date_stamp)
       k_region = OpenSSL::HMAC.digest("SHA256", k_date, region_name)
@@ -255,4 +241,3 @@ module Zonesync
     end
   end
 end
-

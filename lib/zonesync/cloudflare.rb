@@ -1,31 +1,26 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "zonesync/record"
 require "zonesync/http"
 
 module Zonesync
   class Cloudflare < Provider
-    sig { returns(String) }
     def read
       records = [fake_soa] + all.keys
       records.map(&:to_s).join("\n") + "\n"
     end
 
-    sig { params(record: Record).void }
-    def remove record
+    def remove(record)
       id = all.fetch(record)
       http.delete("/#{id}")
     end
 
-    sig { params(old_record: Record, new_record: Record).void }
-    def change old_record, new_record
+    def change(old_record, new_record)
       id = all.fetch(old_record)
       http.patch("/#{id}", to_hash(new_record))
     end
 
-    sig { params(record: Record).void }
-    def add record
+    def add(record)
       add_with_duplicate_handling(record) do
         begin
           http.post("", to_hash(record))
@@ -41,7 +36,6 @@ module Zonesync
       end
     end
 
-    sig { returns(T::Hash[Record, String]) }
     def all
       response = http.get("")
       response["result"].reduce({}) do |map, attrs|
@@ -51,14 +45,13 @@ module Zonesync
 
     private
 
-    sig { params(record: Record).returns(T::Hash[String, String]) }
-    def to_hash record
+    def to_hash(record)
       hash = record.to_h
       content = hash.delete(:rdata)
 
       if record.type == "MX"
         # For MX records, split "priority hostname" into separate fields
-        priority, hostname = T.must(content).split(" ", 2)
+        priority, hostname = content.split(" ", 2)
         hash[:priority] = priority.to_i
         hash[:content] = hostname.sub(/\.$/, "") # remove trailing dot
       else
@@ -69,39 +62,35 @@ module Zonesync
       hash
     end
 
-    sig { params(attrs: T::Hash[String, String]).returns(Record) }
-    def to_record attrs
+    def to_record(attrs)
       rdata = attrs["content"]
       if %w[CNAME MX].include?(attrs["type"])
-        rdata = normalize_trailing_period(T.must(rdata))
+        rdata = normalize_trailing_period(rdata)
       end
       if attrs["type"] == "MX"
         rdata = "#{attrs["priority"]} #{rdata}"
       end
       if %w[TXT SPF NAPTR].include?(attrs["type"])
-        rdata = normalize_quoting(T.must(rdata))
+        rdata = normalize_quoting(rdata)
       end
       Record.new(
-        name: normalize_trailing_period(T.must(attrs["name"])),
+        name: normalize_trailing_period(attrs["name"]),
         type: attrs["type"],
         ttl: attrs["ttl"].to_i,
-        rdata:,
+        rdata: rdata,
         comment: attrs["comment"],
       )
     end
 
-    sig { params(value: String).returns(String) }
-    def normalize_trailing_period value
+    def normalize_trailing_period(value)
       value =~ /\.$/ ? value : value + "."
     end
 
-    sig { params(value: String).returns(String) }
-    def normalize_quoting value
+    def normalize_quoting(value)
       value = value =~ /^".+"$/ ? value : %("#{value}") # handle quote wrapping
       value.gsub('" "', "") # handle multiple txt record joining
     end
 
-    sig { returns(Zonesync::Record) }
     def fake_soa
       zone_name = http.get("/..")["result"]["name"]
       Record.new(
@@ -113,11 +102,10 @@ module Zonesync
       )
     end
 
-    sig { returns(HTTP) }
     def http
       return @http if @http
-      @http = T.let(HTTP.new("https://api.cloudflare.com/client/v4/zones/#{config.fetch(:zone_id)}/dns_records"), T.nilable(Zonesync::HTTP))
-      T.must(@http).before_request do |request|
+      @http = HTTP.new("https://api.cloudflare.com/client/v4/zones/#{config.fetch(:zone_id)}/dns_records")
+      @http.before_request do |request|
         request["Content-Type"] = "application/json"
         if config[:token]
           request["Authorization"] = "Bearer #{config[:token]}"
@@ -126,8 +114,7 @@ module Zonesync
           request["X-Auth-Key"] = config.fetch(:key)
         end
       end
-      T.must(@http)
+      @http
     end
   end
 end
-

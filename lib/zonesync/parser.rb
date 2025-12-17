@@ -1,5 +1,4 @@
-# typed: true
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "treetop"
 Treetop.load File.join(__dir__, "zonefile")
@@ -7,7 +6,7 @@ Treetop.load File.join(__dir__, "zonefile")
 module Zonesync
   class Parser
     def self.parse(zone_string)
-      parser = T.unsafe(ZonefileParser).new
+      parser = ZonefileParser.new
       result = parser.parse(zone_string)
       if !result
         puts zone_string
@@ -90,7 +89,7 @@ module Zonesync
       attr_accessor :comment, :host
 
       def type
-        T.must(self.class.name).split("::").last
+        self.class.name.split("::").last
       end
 
       attr_reader :rdata
@@ -334,4 +333,3 @@ module Zonesync
     end
   end
 end
-

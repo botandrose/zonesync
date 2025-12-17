@@ -1,5 +1,4 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "zonesync/record"
 require "zonesync/record_hash"
@@ -7,31 +6,24 @@ require "digest"
 
 module Zonesync
   Manifest = Struct.new(:records, :zone) do
-    extend T::Sig
-    DIFFABLE_RECORD_TYPES =
-      T.let(%w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort, T::Array[String])
+    DIFFABLE_RECORD_TYPES = %w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort
 
-    sig { returns(T.nilable(Zonesync::Record)) }
     def existing
       records.find(&:manifest?)
     end
 
-    sig { returns(T::Boolean) }
     def existing?
       !!existing
     end
 
-    sig { returns(Zonesync::Record) }
     def generate
       generate_v2
     end
 
-    sig { returns(T.nilable(Zonesync::Record)) }
     def existing_checksum
       records.find(&:checksum?)
     end
 
-    sig { returns(Zonesync::Record) }
     def generate_checksum
       input_string = diffable_records.map(&:to_s).join
       sha256 = Digest::SHA256.hexdigest(input_string)
@@ -44,7 +36,6 @@ module Zonesync
       )
     end
 
-    sig { returns(Zonesync::Record) }
     def generate_v2
       hashes = diffable_records.map { |record| RecordHash.generate(record) }
       Record.new(
@@ -56,8 +47,7 @@ module Zonesync
       )
     end
 
-    sig { params(record: Zonesync::Record).returns(T::Boolean) }
-    def diffable? record
+    def diffable?(record)
       if existing?
         matches?(record)
       else
@@ -65,24 +55,21 @@ module Zonesync
       end
     end
 
-    sig { returns(T::Boolean) }
     def v1_format?
       return false unless existing?
-      manifest_data = T.must(existing).rdata[1..-2]
+      manifest_data = existing.rdata[1..-2]
       # V1 format uses "TYPE:" syntax, v2 uses comma-separated hashes
       manifest_data.include?(":") || manifest_data.include?(";")
     end
 
-    sig { returns(T::Boolean) }
     def v2_format?
       return false unless existing?
       !v1_format?
     end
 
-    sig { params(record: Zonesync::Record).returns(T::Boolean) }
-    def matches? record
+    def matches?(record)
       return false unless existing?
-      manifest_data = T.must(existing).rdata[1..-2] # remove quotes
+      manifest_data = existing.rdata[1..-2] # remove quotes
 
       # Check if this is v2 format (comma-separated hashes) or v1 format (type:names)
       if manifest_data.include?(";")
@@ -104,8 +91,7 @@ module Zonesync
       end
     end
 
-    sig { params(record: Zonesync::Record, with_type: T::Boolean).returns(String) }
-    def shorthand_for record, with_type: false
+    def shorthand_for(record, with_type: false)
       shorthand = record.short_name(zone.origin)
       shorthand = "#{record.type}:#{shorthand}" if with_type
       if record.type == "MX"
@@ -116,21 +102,18 @@ module Zonesync
 
     private
 
-    sig { returns(String) }
     def generate_rdata
       generate_manifest.map do |type, short_names|
         "#{type}:#{short_names.join(",")}"
       end.join(";").inspect
     end
 
-    sig { returns(T::Array[Zonesync::Record]) }
     def diffable_records
       records.select do |record|
         diffable?(record)
       end.sort
     end
 
-    sig { returns(T::Hash[String, T::Array[String]]) }
     def generate_manifest
       hash = diffable_records.reduce({}) do |hash, record|
         hash[record.type] ||= []

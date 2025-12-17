@@ -1,44 +1,33 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
+
 require "zonesync/record_hash"
 
 module Zonesync
   class ValidationError < StandardError
-    extend T::Sig
-
-    sig { void }
     def initialize
-      @errors = T.let([], T::Array[StandardError])
+      @errors = []
     end
 
-    sig { params(error: StandardError).void }
     def add(error)
       @errors << error
     end
 
-    sig { returns(T::Boolean) }
     def any?
       @errors.any?
     end
 
-    sig { returns(String) }
     def message
       @errors.map(&:message).join("\n\n#{'-' * 60}\n\n")
     end
 
-    sig { returns(T::Array[StandardError]) }
     attr_reader :errors
   end
 
   class ConflictError < StandardError
-    extend T::Sig
-
-    sig { params(conflicts: T::Array[[T.nilable(Record), Record]]).void }
     def initialize(conflicts)
       @conflicts = conflicts
     end
 
-    sig { returns(String) }
     def message
       conflicts_text = @conflicts.sort_by { |_existing, new_rec| new_rec.name }.map do |existing_rec, new_rec|
         "  existing: #{existing_rec}\n  new:      #{new_rec}"
@@ -56,14 +45,10 @@ module Zonesync
   end
 
   class MissingManifestError < StandardError
-    extend T::Sig
-
-    sig { params(manifest: Record).void }
-    def initialize manifest
+    def initialize(manifest)
       @manifest = manifest
     end
 
-    sig { returns(String) }
     def message
       <<~MSG
         The zonesync_manifest TXT record is missing. If this is the very first sync, make sure the Zonefile matches what's on the DNS server exactly. Otherwise, someone else may have removed it.
@@ -73,17 +58,6 @@ module Zonesync
   end
 
   class ChecksumMismatchError < StandardError
-    extend T::Sig
-
-    sig {
-      params(
-        existing: T.nilable(Record),
-        new: T.nilable(Record),
-        expected_record: T.nilable(Record),
-        actual_record: T.nilable(Record),
-        missing_hash: T.nilable(String)
-      ).void
-    }
     def initialize(existing = nil, new = nil, expected_record: nil, actual_record: nil, missing_hash: nil)
       @existing = existing
       @new = new
@@ -92,7 +66,6 @@ module Zonesync
       @missing_hash = missing_hash
     end
 
-    sig { returns(String) }
     def message
       # V2 manifest integrity violation
       if @missing_hash
@@ -109,7 +82,6 @@ module Zonesync
 
     private
 
-    sig { returns(String) }
     def generate_v2_message
       if @expected_record && @actual_record
         # Record was modified
@@ -143,23 +115,17 @@ module Zonesync
   end
 
   class DuplicateRecordError < StandardError
-    extend T::Sig
-
-    sig { params(record: Record, provider_message: T.nilable(String)).void }
-    def initialize record, provider_message = nil
+    def initialize(record, provider_message = nil)
       @record = record
       @provider_message = provider_message
     end
 
-    sig { returns(String) }
     def message
       msg = "Record already exists: #{@record.name} #{@record.type}"
       msg += " (#{@provider_message})" if @provider_message
       msg
     end
 
-    sig { returns(Record) }
     attr_reader :record
   end
 end
-

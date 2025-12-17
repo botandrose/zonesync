@@ -1,18 +1,11 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 module Zonesync
-  Operation = T.type_alias { [Symbol, T::Array[Record]] }
-
   Diff = Struct.new(:from, :to) do
-    extend T::Sig
-
-    sig { params(from: T::Array[Record], to: T::Array[Record]).returns(T.untyped) }
     def self.call(from:, to:)
       new(from, to).call
     end
 
-    sig { returns(T::Array[[Symbol, T::Array[Record]]]) }
     def call
       # Group records by their primary key (name + type)
       from_by_key = from.group_by { |r| [r.name, r.type] }
@@ -58,4 +51,3 @@ module Zonesync
     end
   end
 end
-

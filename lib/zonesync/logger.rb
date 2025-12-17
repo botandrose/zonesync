@@ -1,15 +1,11 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "logger"
 require "fileutils"
 
 module Zonesync
   class Logger
-    extend T::Sig
-
-    sig { params(method: Symbol, records: T::Array[Record], dry_run: T::Boolean).void }
-    def self.log method, records, dry_run: false
+    def self.log(method, records, dry_run: false)
       loggers = [::Logger.new(STDOUT)]
 
       if !dry_run
@@ -26,4 +22,3 @@ module Zonesync
     end
   end
 end
-

@@ -1,17 +1,13 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
+
 require "zonesync/record_hash"
 
 module Zonesync
   Validator = Struct.new(:operations, :destination, :source) do
-    extend T::Sig
-
-    sig { params(operations: T::Array[Operation], destination: Provider, source: T.nilable(Provider), force: T::Boolean).void }
     def self.call(operations, destination, source = nil, force: false)
       new(operations, destination, source).call(force: force)
     end
 
-    sig { params(force: T::Boolean).void }
     def call(force: false)
       validation_error = ValidationError.new
 
@@ -44,14 +40,12 @@ module Zonesync
 
     private
 
-    sig { returns(Manifest) }
     def manifest
       destination.manifest
     end
 
-    sig { returns(T.nilable(ChecksumMismatchError)) }
     def validate_v2_manifest_integrity
-      manifest_data = T.must(manifest.existing).rdata[1..-2]
+      manifest_data = manifest.existing.rdata[1..-2]
       expected_hashes = manifest_data.split(",")
       actual_records = Record.non_meta(destination.records)
       actual_hash_to_record = actual_records.map { |r| [RecordHash.generate(r), r] }.to_h
@@ -69,7 +63,6 @@ module Zonesync
       )
     end
 
-    sig { params(missing_hash: String).returns(T.nilable(Record)) }
     def find_expected_record(missing_hash)
       return nil unless source
 
@@ -77,7 +70,6 @@ module Zonesync
       source_records.find { |r| RecordHash.generate(r) == missing_hash }
     end
 
-    sig { params(expected_record: T.nilable(Record), actual_records: T::Array[Record]).returns(T.nilable(Record)) }
     def find_modified_record(expected_record, actual_records)
       return nil unless expected_record
 
@@ -96,8 +88,7 @@ module Zonesync
       end
     end
 
-    sig { params(record: Record, force: T::Boolean).returns(T.nilable([T.nilable(Record), Record])) }
-    def validate_addition record, force: false
+    def validate_addition(record, force: false)
       return nil if manifest.matches?(record)
       return nil if force
 
@@ -115,7 +106,6 @@ module Zonesync
       [conflicting_record, record]
     end
 
-    sig { params(record: Record, expected_hashes: T::Array[String]).returns(T.nilable(Record)) }
     def find_v2_conflict(record, expected_hashes)
       destination.records.find do |r|
         next if r.manifest? || r.checksum?
@@ -126,7 +116,6 @@ module Zonesync
       end
     end
 
-    sig { params(record: Record).returns(T.nilable(Record)) }
     def find_v1_conflict(record)
       shorthand = manifest.shorthand_for(record, with_type: true)
       destination.records.find do |r|
@@ -134,7 +123,6 @@ module Zonesync
       end
     end
 
-    sig { params(record: Record).returns(T.nilable(Record)) }
     def find_unmanaged_conflict(record)
       destination.records.find do |r|
         r.identical_to?(record)
@@ -142,4 +130,3 @@ module Zonesync
     end
   end
 end
-

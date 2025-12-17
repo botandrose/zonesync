@@ -1,52 +1,41 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "net/http"
 require "json"
 
 module Zonesync
   HTTP = Struct.new(:base) do
-    extend T::Sig
-
-    sig { params(base: String).void }
     def initialize(base)
       super
-      @before_request = T.let([], T::Array[T.untyped])
-      @after_response = T.let([], T::Array[T.untyped])
+      @before_request = []
+      @after_response = []
     end
 
-    sig { params(path: String).returns(T.untyped) }
-    def get path
+    def get(path)
       request("get", path)
     end
 
-    sig { params(path: String, body: T.untyped).returns(T.untyped) }
-    def post path, body
+    def post(path, body)
       request("post", path, body)
     end
 
-    sig { params(path: String, body: T.untyped).returns(T.untyped) }
-    def patch path, body
+    def patch(path, body)
       request("patch", path, body)
     end
 
-    sig { params(path: String).returns(T.untyped) }
-    def delete path
+    def delete(path)
       request("delete", path)
     end
 
-    sig { params(block: T.proc.params(arg0: T.untyped, arg1: T.untyped, arg2: T.untyped).void).void }
-    def before_request &block
+    def before_request(&block)
       @before_request << block
     end
 
-    sig { params(block: T.proc.params(arg0: T.untyped).void).void }
-    def after_response &block
+    def after_response(&block)
       @after_response << block
     end
 
-    sig { params(method: String, path: String, body: T.untyped).returns(T.untyped) }
-    def request method, path, body=nil
+    def request(method, path, body = nil)
       uri = URI.parse("#{base}#{path}")
       request = Net::HTTP.const_get(method.to_s.capitalize).new(uri.path)
 

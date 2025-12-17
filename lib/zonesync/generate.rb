@@ -1,11 +1,7 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 module Zonesync
   Generate = Struct.new(:source, :destination) do
-    extend T::Sig
-
-    sig { void }
     def call
       destination.write(source.read)
       nil

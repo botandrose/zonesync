@@ -21,10 +21,6 @@ Zonesync is a Ruby gem that synchronizes DNS zone files with DNS providers (Clou
 - `bundle exec zonesync --force` - Force sync ignoring checksum mismatches
 - `bundle exec zonesync generate` - Generate Zonefile from DNS provider
 
-### Type Checking (Sorbet)
-- `bundle exec srb tc` - Run Sorbet type checker
-- `bundle exec tapioca gem` - Generate RBI files for gems
-
 ## Architecture
 
 ### Core Components
@@ -72,14 +68,6 @@ Credentials stored in Rails-style encrypted configuration:
 - **Feature specs** in `spec/features/` test end-to-end workflows
 - **Unit specs** test individual classes and methods
 - All tests should pass before committing changes
-
-## Type Safety
-
-Uses **Sorbet** for gradual typing:
-- All files have `# typed: strict` or similar headers
-- Method signatures use `sig { ... }` blocks
-- `extend T::Sig` enables signature checking
-- RBI files in `sorbet/rbi/` define external gem types
 
 ## Error Handling
 

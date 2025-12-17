@@ -1,14 +1,10 @@
-# typed: strict
-require "sorbet-runtime"
+# frozen_string_literal: true
 
 require "zonesync/logger"
 
 module Zonesync
   Sync = Struct.new(:source, :destination) do
-    extend T::Sig
-
-    sig { params(dry_run: T::Boolean, force: T::Boolean).void }
-    def call dry_run: false, force: false
+    def call(dry_run: false, force: false)
       operations = destination.diff!(source, force: force)
 
       smanifest = source.manifest.generate
