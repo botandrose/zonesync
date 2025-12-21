@@ -2,12 +2,21 @@
 
 require "zonesync/record"
 require "zonesync/http"
+require "zonesync/cloudflare/proxied_support"
 
 module Zonesync
   class Cloudflare < Provider
     def read
-      records = [fake_soa] + all.keys
+      records = [fake_soa.extend(ProxiedSupport)] + all.keys
       records.map(&:to_s).join("\n") + "\n"
+    end
+
+    def diff(other)
+      source_records = other.diffable_records.map { |r| r.extend(ProxiedSupport) }
+      Diff.new(
+        from: diffable_records,
+        to: source_records,
+      )
     end
 
     def remove(record)
@@ -39,7 +48,7 @@ module Zonesync
     def all
       response = http.get("")
       response["result"].reduce({}) do |map, attrs|
-        map.merge to_record(attrs) => attrs["id"]
+        map.merge(to_record(attrs) => attrs["id"])
       end
     end
 
@@ -48,6 +57,7 @@ module Zonesync
     def to_hash(record)
       hash = record.to_h
       content = hash.delete(:rdata)
+      proxied = hash.delete(:proxied)
 
       if record.type == "MX"
         # For MX records, split "priority hostname" into separate fields
@@ -58,6 +68,7 @@ module Zonesync
         hash[:content] = content
       end
 
+      hash[:proxied] = proxied if proxied != nil
       hash[:comment] = hash.delete(:comment) # maintain original order
       hash
     end
@@ -73,13 +84,21 @@ module Zonesync
       if %w[TXT SPF NAPTR].include?(attrs["type"])
         rdata = normalize_quoting(rdata)
       end
-      Record.new(
+
+      record = Record.new(
         name: normalize_trailing_period(attrs["name"]),
         type: attrs["type"],
         ttl: attrs["ttl"].to_i,
         rdata: rdata,
-        comment: attrs["comment"],
+        comment: comment_with_proxied(attrs["comment"], attrs["proxied"]),
       )
+      record.extend(ProxiedSupport)
+    end
+
+    def comment_with_proxied(comment, proxied)
+      return comment if proxied.nil?
+      cf_tag = "cf_tags=cf-proxied:#{proxied}"
+      [comment, cf_tag].compact.join(" ")
     end
 
     def normalize_trailing_period(value)

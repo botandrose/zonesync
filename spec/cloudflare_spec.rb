@@ -89,13 +89,15 @@ describe Zonesync::Cloudflare do
           }
         JSON
 
-      subject.remove(Zonesync::Record.new(
+      record = Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
-        comment: "Domain verification record",
-      ))
+        comment: "Domain verification record cf_tags=cf-proxied:false",
+      )
+      record.extend(Zonesync::Cloudflare::ProxiedSupport)
+      subject.remove(record)
     end
   end
 
@@ -123,19 +125,25 @@ describe Zonesync::Cloudflare do
           }
         JSON
 
-      subject.change(Zonesync::Record.new(
+      old_record = Zonesync::Record.new(
         name: "example.com.",
         type: "A",
         ttl: 3600,
         rdata: "198.51.100.4",
-        comment: "Domain verification record",
-      ), Zonesync::Record.new(
+        comment: "Domain verification record cf_tags=cf-proxied:false",
+      )
+      old_record.extend(Zonesync::Cloudflare::ProxiedSupport)
+
+      new_record = Zonesync::Record.new(
         name: "www.example.com.",
         type: "A",
         ttl: 7200,
         rdata: "198.51.100.4",
         comment: "Domain verification record",
-      ))
+      )
+      new_record.extend(Zonesync::Cloudflare::ProxiedSupport)
+
+      subject.change(old_record, new_record)
     end
   end
 
