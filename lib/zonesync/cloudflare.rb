@@ -20,13 +20,20 @@ module Zonesync
     end
 
     def remove(record)
-      id = all.fetch(record)
+      id = find_record_id(record)
       http.delete("/#{id}")
     end
 
     def change(old_record, new_record)
-      id = all.fetch(old_record)
+      id = find_record_id(old_record)
       http.patch("/#{id}", to_hash(new_record))
+    end
+
+    def find_record_id(record)
+      all.each do |existing, id|
+        return id if existing.identical_to?(record)
+      end
+      raise KeyError, "record not found: #{record.inspect}"
     end
 
     def add(record)

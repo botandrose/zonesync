@@ -32,12 +32,13 @@ module Zonesync
       end
 
       def ==(other)
+        other_proxied = other.respond_to?(:proxied) ? other.proxied : nil
         name == other.name &&
           type == other.type &&
           ttl == other.ttl &&
           rdata == other.rdata &&
           comment == other.comment &&
-          proxied == other.proxied
+          proxied == other_proxied
       end
       alias eql? ==
 

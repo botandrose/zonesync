@@ -105,6 +105,40 @@ describe "Cloudflare proxied status support" do
     end
   end
 
+  context "record lookup" do
+    it "can change records without ProxiedSupport (e.g. manifest records)" do
+      http_client = double("HTTP")
+      allow(http_client).to receive(:get).with("").and_return({
+        "result" => [
+          { "id" => "123", "name" => "zonesync_manifest.example.com", "type" => "TXT", "content" => "old-value", "ttl" => 3600, "proxied" => false, "comment" => nil }
+        ]
+      })
+      expect(http_client).to receive(:patch).with("/123", hash_including(content: '"new-value"')).and_return({ "result" => {}, "success" => true })
+
+      cloudflare = Zonesync::Cloudflare.new({})
+      allow(cloudflare).to receive(:http).and_return(http_client)
+
+      # Simulate a manifest record created without ProxiedSupport
+      # The old_record must match what to_record produces from the API response
+      old_record = Zonesync::Record.new(
+        name: "zonesync_manifest.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"old-value"',
+        comment: nil,
+      )
+      new_record = Zonesync::Record.new(
+        name: "zonesync_manifest.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"new-value"',
+        comment: nil,
+      )
+
+      cloudflare.change(old_record, new_record)
+    end
+  end
+
   context "end-to-end proxy status sync" do
     it "syncs proxy status changes from zone file to Cloudflare" do
       zone_file = <<~ZONEFILE
