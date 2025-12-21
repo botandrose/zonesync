@@ -2,6 +2,9 @@
 
 module Zonesync
   Record = Struct.new(:name, :type, :ttl, :rdata, :comment, keyword_init: true) do
+    # Make Record immutable by removing setters
+    undef_method :name=, :type=, :ttl=, :rdata=, :comment=, :[]=
+
     def self.from_dns_zonefile_record(record)
       new(
         name: record.host,
