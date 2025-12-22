@@ -82,12 +82,25 @@ describe "Cloudflare proxied status support" do
   context "sending proxied status to Cloudflare API" do
     it "includes proxied field in API requests when set" do
       http_client = double("HTTP")
-      expect(http_client).to receive(:post).with("", hash_including(proxied: true)).and_return({ "result" => {}, "success" => true })
+      expect(http_client).to receive(:post).with("", hash_including(proxied: true, comment: nil)).and_return({ "result" => {}, "success" => true })
 
       cloudflare = Zonesync::Cloudflare.new({})
       allow(cloudflare).to receive(:http).and_return(http_client)
 
       record = Zonesync::Record.new(name: "www.example.com.", type: "A", ttl: 3600, rdata: "192.0.2.1", comment: "cf_tags=cf-proxied:true")
+      record.extend(Zonesync::Cloudflare::ProxiedSupport)
+
+      cloudflare.add(record)
+    end
+
+    it "strips cf_tags from comment when sending to API" do
+      http_client = double("HTTP")
+      expect(http_client).to receive(:post).with("", hash_including(proxied: false, comment: "My comment")).and_return({ "result" => {}, "success" => true })
+
+      cloudflare = Zonesync::Cloudflare.new({})
+      allow(cloudflare).to receive(:http).and_return(http_client)
+
+      record = Zonesync::Record.new(name: "www.example.com.", type: "A", ttl: 3600, rdata: "192.0.2.1", comment: "cf_tags=cf-proxied:false My comment")
       record.extend(Zonesync::Cloudflare::ProxiedSupport)
 
       cloudflare.add(record)

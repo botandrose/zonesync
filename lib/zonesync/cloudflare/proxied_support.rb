@@ -28,7 +28,7 @@ module Zonesync
       end
 
       def to_h
-        super.merge(proxied: proxied)
+        super.merge(comment: comment, proxied: proxied)
       end
 
       def ==(other)
