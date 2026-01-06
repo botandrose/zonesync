@@ -4,11 +4,30 @@ require "zonesync/parser"
 
 module Zonesync
   class Zonefile
-    def self.load(zone_string)
-      if zone_string !~ /\sSOA\s/ # insert dummy SOA to trick parser if needed
-        zone_string.sub!(/\n([^$])/, "\n@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n\\1")
+    DUMMY_SOA = "@ 1 SOA example.com example.com ( 2000010101 1 1 1 1 )\n"
+
+    # Inserts a dummy SOA record if needed for parsing.
+    # Returns [modified_content, insertion_offset] where insertion_offset is nil if no SOA was added,
+    # or the byte position and length of the inserted SOA.
+    def self.ensure_soa(zone_string)
+      if zone_string =~ /\sSOA\s/
+        [zone_string, nil]
+      else
+        content = zone_string.dup
+        match = content.match(/\n([^$])/)
+        if match
+          insertion_point = match.begin(0) + 1
+          content.sub!(/\n([^$])/, "\n#{DUMMY_SOA}\\1")
+          [content, { at: insertion_point, length: DUMMY_SOA.length }]
+        else
+          [content, nil]
+        end
       end
-      zone = Parser.parse(zone_string)
+    end
+
+    def self.load(zone_string)
+      content, _ = ensure_soa(zone_string)
+      zone = Parser.parse(content)
       records = zone.records.map do |dns_zonefile_record|
         Zonesync::Record.from_dns_zonefile_record(dns_zonefile_record)
       end

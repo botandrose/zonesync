@@ -3,6 +3,7 @@
 require "zonesync/sync"
 require "zonesync/generate"
 require "zonesync/provider"
+require "zonesync/repair"
 require "zonesync/cli"
 require "zonesync/rake"
 require "zonesync/errors"
@@ -26,6 +27,13 @@ module Zonesync
     Generate.new(
       Provider.from(credentials(source.to_sym)),
       Provider.from({ provider: "Filesystem", path: destination }),
+    ).call
+  end
+
+  def self.repair(source: "Zonefile", destination: "zonesync")
+    Repair.new(
+      Provider.from({ provider: "Filesystem", path: source }),
+      Provider.from(credentials(destination.to_sym)),
     ).call
   end
 

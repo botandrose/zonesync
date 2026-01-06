@@ -26,6 +26,14 @@ module Zonesync
       Zonesync.generate(**kwargs)
     end
 
+    desc "repair --source=Zonefile --destination=zonesync", "interactively repair differences between Zonefile and DNS provider"
+    option :source, default: "Zonefile", desc: "path to the zonefile"
+    option :destination, default: "zonesync", desc: "key to the DNS server configuration in Rails.application.credentials"
+    def repair
+      kwargs = options.to_hash.transform_keys(&:to_sym)
+      Zonesync.repair(**kwargs)
+    end
+
     def self.exit_on_failure? = true
   end
 end

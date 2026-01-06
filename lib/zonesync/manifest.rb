@@ -5,9 +5,9 @@ require "zonesync/record_hash"
 require "digest"
 
 module Zonesync
-  Manifest = Struct.new(:records, :zone) do
-    DIFFABLE_RECORD_TYPES = %w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort
+  DIFFABLE_RECORD_TYPES = %w[A AAAA CNAME MX TXT SPF NAPTR PTR].sort.freeze
 
+  Manifest = Struct.new(:records, :zone) do
     def existing
       records.find(&:manifest?)
     end
