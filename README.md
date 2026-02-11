@@ -50,49 +50,64 @@ mail2         A     192.0.2.4
 mail3         A     192.0.2.5
 ```
 
-### DNS Host
+### Credentials
 
-We need to tell `zonesync` about our DNS host by building a small YAML file. The structure of this file will depend on your DNS host, so here are some examples:
+Zonesync reads DNS provider credentials from Rails encrypted credentials (`config/credentials.yml.enc`). Edit them with:
+
+```
+$ bin/rails credentials:edit
+```
+
+Add a key (by default `zonesync`) with your provider configuration:
 
 **Cloudflare**
 
+```yaml
+zonesync:
+  provider: Cloudflare
+  zone_id: <CLOUDFLARE_DOMAIN_ZONE_ID>
+  token: <CLOUDFLARE_API_TOKEN>
+  # or instead of token you can auth with:
+  # email: <CLOUDFLARE_EMAIL>
+  # key: <CLOUDFLARE_API_KEY>
 ```
-provider: Cloudflare
-zone_id: <CLOUDFLARE_DOMAIN_ZONE_ID>
-token: <CLOUDFLARE_API_TOKEN>
-# or instead of token you can auth with:
-email: <CLOUDFLARE_EMAIL>
-key: <CLOUDFLARE_API_KEY>
-``
 
 **Route 53**
 
+```yaml
+zonesync:
+  provider: Route53
+  aws_access_key_id: <AWS_ACCESS_KEY_ID>
+  aws_secret_access_key: <AWS_SECRET_ACCESS_KEY>
+  hosted_zone_id: <HOSTED_ZONE_ID>
 ```
-provider: AWS
-aws_access_key_id: <AWS_ACCESS_KEY_ID>
-aws_secret_access_key: <AWS_SECRET_ACCESS_KEY>
-```
+
+The encryption key is read from `config/master.key` or the `RAILS_MASTER_KEY` environment variable.
 
 ### Usage
 
 #### CLI
 
 ```
-$ bundle exec zonesync
+$ bundle exec zonesync                # sync Zonefile to DNS provider
+$ bundle exec zonesync --dry-run      # log to STDOUT but don't actually perform the sync
+$ bundle exec zonesync generate       # generate a Zonefile from the configured provider
 ```
+
+By default, zonesync reads from `Zonefile` and uses the `zonesync` key in credentials. You can override these:
+
 ```
-$ bundle exec zonesync --dry-run # log to STDOUT but don't actually perform the sync
+$ bundle exec zonesync --source=Zonefile --destination=zonesync
+$ bundle exec zonesync generate --source=zonesync --destination=Zonefile
 ```
-```
-$ bundle exec zonesync generate # generate a Zonefile from the configured provider
-```
+
 #### Ruby
 
-Assuming your zone file lives in `hostfile.txt` and your DNS provider credentials are configured in `provider.yml`:
-
 ```ruby
-require 'zonesync'
-Zonesync.call(zonefile: 'hostfile.txt', credentials: YAML.load('provider.yml'))
+require "zonesync"
+Zonesync.call                                          # uses defaults
+Zonesync.call(source: "Zonefile", destination: "zonesync", dry_run: true)
+Zonesync.generate(source: "zonesync", destination: "Zonefile")
 ```
 
 ### Managing or avoiding conflicts with other people making edits to the DNS records
