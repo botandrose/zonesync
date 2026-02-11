@@ -219,7 +219,7 @@ module Zonesync
       ].join("\n")
 
       algorithm = "AWS4-HMAC-SHA256"
-      credential_scope = "#{date}/#{config.fetch(:aws_region)}/#{service}/aws4_request"
+      credential_scope = "#{date}/us-east-1/#{service}/aws4_request"
       string_to_sign = [
         algorithm,
         amz_date,
@@ -227,7 +227,7 @@ module Zonesync
         OpenSSL::Digest::SHA256.hexdigest(canonical_request)
       ].join("\n")
 
-      signing_key = get_signature_key(config.fetch(:aws_secret_access_key), date, config.fetch(:aws_region), service)
+      signing_key = get_signature_key(config.fetch(:aws_secret_access_key), date, "us-east-1", service)
       signature = OpenSSL::HMAC.hexdigest("SHA256", signing_key, string_to_sign)
 
       "#{algorithm} Credential=#{config.fetch(:aws_access_key_id)}/#{credential_scope}, SignedHeaders=#{signed_headers}, Signature=#{signature}"
