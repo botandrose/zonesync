@@ -18,57 +18,52 @@ module Zonesync
     end
 
     def remove(record)
-      if record.type == "TXT"
-        # Route53 requires all TXT records with the same name to be managed together
-        existing_txt_records = records.select do |r|
-          r.name == record.name && r.type == "TXT"
-        end
+      # Route53 requires all records with the same name/type to be managed together as a record set
+      existing_records = records.select do |r|
+        r.name == record.name && r.type == record.type
+      end
 
-        if existing_txt_records.length == 1
-          # Only one TXT record, delete it normally
-          change_record("DELETE", record)
-        else
-          # Multiple TXT records - delete all, then recreate without the removed one
-          remaining_txt_records = existing_txt_records.reject { |r| r == record }
-
-          # Use change_records to handle both DELETE and CREATE in one request
-          grouped = [
-            [existing_txt_records, "DELETE"],
-            [remaining_txt_records, "CREATE"]
-          ]
-
-          http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
-            <?xml version="1.0" encoding="UTF-8"?>
-            <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-              <ChangeBatch>
-                <Changes>
-                  <%- grouped.each do |records_list, action| -%>
-                  <%- records_grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] } -%>
-                  <%- records_grouped.each do |(name, type, ttl), group_records| -%>
-                  <Change>
-                    <Action><%= action %></Action>
-                    <ResourceRecordSet>
-                      <Name><%= name %></Name>
-                      <Type><%= type %></Type>
-                      <TTL><%= ttl %></TTL>
-                      <ResourceRecords>
-                        <%- group_records.each do |group_record| -%>
-                        <ResourceRecord>
-                          <Value><%= group_record.rdata %></Value>
-                        </ResourceRecord>
-                        <%- end -%>
-                      </ResourceRecords>
-                    </ResourceRecordSet>
-                  </Change>
-                  <%- end -%>
-                  <%- end -%>
-                </Changes>
-              </ChangeBatch>
-            </ChangeResourceRecordSetsRequest>
-          XML
-        end
-      else
+      if existing_records.length == 1
         change_record("DELETE", record)
+      else
+        remaining_records = existing_records.reject { |r| r == record }
+
+        grouped = [
+          [existing_records, "DELETE"],
+          *(remaining_records.any? ? [[remaining_records, "CREATE"]] : [])
+        ]
+
+        http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <%- grouped.each do |records_list, action| -%>
+                <%- records_grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] } -%>
+                <%- records_grouped.each do |(name, type, ttl), group_records| -%>
+                <Change>
+                  <Action><%= action %></Action>
+                  <ResourceRecordSet>
+                    <Name><%= name %></Name>
+                    <Type><%= type %></Type>
+                    <TTL><%= ttl %></TTL>
+                    <ResourceRecords>
+                      <%- group_records.each do |group_record| -%>
+                      <ResourceRecord>
+                        <Value><%= rdata_for_api(group_record) %></Value>
+                      </ResourceRecord>
+                      <%- end -%>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+                <%- end -%>
+                <%- end -%>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+
+        invalidate_cache!
       end
     end
 
@@ -80,25 +75,19 @@ module Zonesync
     def add(record)
       add_with_duplicate_handling(record) do
         begin
-          if record.type == "TXT"
-            # Route53 requires all TXT records with the same name to be combined into a single record set
-            existing_txt_records = records.select do |r|
-              r.name == record.name && r.type == "TXT"
-            end
-            all_txt_records = existing_txt_records + [record]
-
-            # Use UPSERT if records already exist, CREATE if they don't
-            action = existing_txt_records.empty? ? "CREATE" : "UPSERT"
-            change_records(action, all_txt_records)
-          else
-            change_record("CREATE", record)
+          # Route53 requires all records with the same name/type to be in a single record set
+          existing_records = records.select do |r|
+            r.name == record.name && r.type == record.type
           end
+          all_records = (existing_records + [record]).uniq
+
+          action = existing_records.empty? ? "CREATE" : "UPSERT"
+          change_records(action, all_records)
+          invalidate_cache! if existing_records.any?
         rescue RuntimeError => e
-          # Convert Route53-specific duplicate error to standard exception
           if e.message.include?("RRSet already exists")
             raise DuplicateRecordError.new(record, "Route53 duplicate record error")
           else
-            # Re-raise other errors
             raise
           end
         end
@@ -106,6 +95,11 @@ module Zonesync
     end
 
     private
+
+    def invalidate_cache!
+      @read = nil
+      @zonefile = nil
+    end
 
     def change_record(action, record)
       http.post("", <<~XML)
@@ -121,7 +115,7 @@ module Zonesync
                   <TTL>#{record.ttl}</TTL>
                   <ResourceRecords>
                     <ResourceRecord>
-                      <Value>#{record.rdata}</Value>
+                      <Value>#{rdata_for_api(record)}</Value>
                     </ResourceRecord>
                   </ResourceRecords>
                 </ResourceRecordSet>
@@ -151,7 +145,7 @@ module Zonesync
                   <ResourceRecords>
                     <%- records.each do |record| -%>
                     <ResourceRecord>
-                      <Value><%= record.rdata %></Value>
+                      <Value><%= rdata_for_api(record) %></Value>
                     </ResourceRecord>
                     <%- end -%>
                   </ResourceRecords>
@@ -164,12 +158,23 @@ module Zonesync
       XML
     end
 
+    def rdata_for_api(record)
+      return record.rdata unless record.type == "TXT"
+
+      # DNS TXT strings have a 255-character limit per quoted string.
+      # Split any single quoted string that exceeds this limit.
+      record.rdata.scan(/"([^"]*)"/).flatten.flat_map { |s|
+        s.scan(/.{1,255}/)
+      }.map { |s| %("#{s}") }.join(" ")
+    end
+
     def to_records(el)
       el.elements.collect("ResourceRecords/ResourceRecord") do |rr|
         name = normalize_trailing_period(get_value(el, "Name"))
         type = get_value(el, "Type")
         ttl = get_value(el, "TTL")
         rdata = get_value(rr, "Value")
+        rdata = normalize_txt_rdata(rdata) if type == "TXT"
 
         record = Record.new(
           name: name,
@@ -183,6 +188,13 @@ module Zonesync
 
     def get_value(el, field)
       el.elements[field].text.gsub(/\\(\d{3})/) { $1.to_i(8).chr } # unescape octal
+    end
+
+    def normalize_txt_rdata(rdata)
+      # Route53 splits long TXT strings at 255 chars. Join them back into a
+      # single quoted string so hashes match the Zonefile's canonical format.
+      strings = rdata.scan(/"([^"]*)"/).flatten
+      %("#{strings.join}")
     end
 
     def normalize_trailing_period(value)

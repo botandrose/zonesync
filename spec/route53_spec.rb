@@ -43,6 +43,10 @@ describe Zonesync::Route53 do
 
   describe "remove" do
     it "works" do
+      allow(subject).to receive(:records).and_return([
+        Zonesync::Record.new(name: "example.com.", type: "A", ttl: 3600, rdata: "198.51.100.4", comment: nil)
+      ])
+
       stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
         .with(body: <<~XML)
           <?xml version="1.0" encoding="UTF-8"?>
@@ -89,6 +93,10 @@ describe Zonesync::Route53 do
 
   describe "change" do
     it "works" do
+      allow(subject).to receive(:records).and_return([
+        Zonesync::Record.new(name: "example.com.", type: "A", ttl: 3600, rdata: "198.51.100.4", comment: nil)
+      ])
+
       stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
         .with(body: <<~XML)
           <?xml version="1.0" encoding="UTF-8"?>
@@ -176,6 +184,8 @@ describe Zonesync::Route53 do
 
   describe "add" do
     it "works" do
+      allow(subject).to receive(:records).and_return([])
+
       stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
         .with(body: <<~XML)
           <?xml version="1.0" encoding="UTF-8"?>

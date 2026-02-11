@@ -12,6 +12,7 @@ describe Zonesync::Route53 do
 
       route53 = described_class.new({})
       allow(route53).to receive(:http).and_return(http_client)
+      allow(route53).to receive(:records).and_return([])
 
       a_record = Zonesync::Record.new(
         name: "test.example.com.",
@@ -29,13 +30,14 @@ describe Zonesync::Route53 do
     it "still raises other Route53 API errors" do
       # Mock HTTP client that raises a different error
       http_client = double("HTTP")
-      
+
       # Mock a different API error
       error_response = "InvalidChangeBatch: Some other error"
       allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
 
       route53 = described_class.new({})
       allow(route53).to receive(:http).and_return(http_client)
+      allow(route53).to receive(:records).and_return([])
 
       a_record = Zonesync::Record.new(
         name: "test.example.com.",
@@ -52,13 +54,14 @@ describe Zonesync::Route53 do
     it "converts Route53 duplicate errors to standard DuplicateRecordError" do
       # Mock HTTP client that raises Route53's duplicate record error
       http_client = double("HTTP")
-      
+
       # Mock the add request to return Route53's duplicate error
       error_response = "RRSet already exists"
       allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
 
       route53 = described_class.new({})
       allow(route53).to receive(:http).and_return(http_client)
+      allow(route53).to receive(:records).and_return([])
 
       # Override the add_with_duplicate_handling to capture the exception
       captured_exception = nil
@@ -88,13 +91,14 @@ describe Zonesync::Route53 do
     it "works with MX records" do
       # Mock HTTP client that raises Route53's duplicate record error for MX
       http_client = double("HTTP")
-      
+
       # Mock the add request to return Route53's duplicate error
       error_response = "RRSet already exists"
       allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
 
       route53 = described_class.new({})
       allow(route53).to receive(:http).and_return(http_client)
+      allow(route53).to receive(:records).and_return([])
 
       mx_record = Zonesync::Record.new(
         name: "mail.example.com.",
