@@ -83,7 +83,7 @@ module Zonesync
 
           action = existing_records.empty? ? "CREATE" : "UPSERT"
           change_records(action, all_records)
-          invalidate_cache! if existing_records.any?
+          invalidate_cache!
         rescue RuntimeError => e
           if e.message.include?("RRSet already exists")
             raise DuplicateRecordError.new(record, "Route53 duplicate record error")
