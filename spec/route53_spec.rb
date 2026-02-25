@@ -92,9 +92,9 @@ describe Zonesync::Route53 do
   end
 
   describe "change" do
-    it "works" do
+    it "uses a single UPSERT for TTL-only changes" do
       allow(subject).to receive(:records).and_return([
-        Zonesync::Record.new(name: "example.com.", type: "A", ttl: 3600, rdata: "198.51.100.4", comment: nil)
+        Zonesync::Record.new(name: "spektrix.pica.org.", type: "CNAME", ttl: 3600, rdata: "customers.spektrix.com.", comment: nil)
       ])
 
       stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
@@ -104,48 +104,14 @@ describe Zonesync::Route53 do
             <ChangeBatch>
               <Changes>
                 <Change>
-                  <Action>DELETE</Action>
+                  <Action>UPSERT</Action>
                   <ResourceRecordSet>
-                    <Name>example.com.</Name>
-                    <Type>A</Type>
-                    <TTL>3600</TTL>
+                    <Name>spektrix.pica.org.</Name>
+                    <Type>CNAME</Type>
+                    <TTL>600</TTL>
                     <ResourceRecords>
                       <ResourceRecord>
-                        <Value>198.51.100.4</Value>
-                      </ResourceRecord>
-                    </ResourceRecords>
-                  </ResourceRecordSet>
-                </Change>
-              </Changes>
-            </ChangeBatch>
-          </ChangeResourceRecordSetsRequest>
-        XML
-        .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
-          <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-            <ChangeInfo>
-              <Id>/change/C2682N5HXP0BZ4</Id>
-              <Status>PENDING</Status>
-              <SubmittedAt>2025-01-04T00:30:09.123Z</SubmittedAt>
-              <Comment>Delete a record set</Comment>
-            </ChangeInfo>
-          </ChangeResourceRecordSetsResponse>
-        XML
-
-      stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
-        .with(body: <<~XML)
-          <?xml version="1.0" encoding="UTF-8"?>
-          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-            <ChangeBatch>
-              <Changes>
-                <Change>
-                  <Action>CREATE</Action>
-                  <ResourceRecordSet>
-                    <Name>www.example.com.</Name>
-                    <Type>A</Type>
-                    <TTL>7200</TTL>
-                    <ResourceRecords>
-                      <ResourceRecord>
-                        <Value>198.51.100.4</Value>
+                        <Value>customers.spektrix.com.</Value>
                       </ResourceRecord>
                     </ResourceRecords>
                   </ResourceRecordSet>
@@ -161,22 +127,22 @@ describe Zonesync::Route53 do
               <Id>/change/C2682N5HXP0BZ4</Id>
               <Status>PENDING</Status>
               <SubmittedAt>2025-01-04T00:37:31.123Z</SubmittedAt>
-              <Comment>Create an A record</Comment>
+              <Comment>Upsert a record set</Comment>
             </ChangeInfo>
           </ChangeResourceRecordSetsResponse>
         XML
 
       subject.change(Zonesync::Record.new(
-        name: "example.com.",
-        type: "A",
+        name: "spektrix.pica.org.",
+        type: "CNAME",
         ttl: 3600,
-        rdata: "198.51.100.4",
+        rdata: "customers.spektrix.com.",
         comment: nil
       ), Zonesync::Record.new(
-        name: "www.example.com.",
-        type: "A",
-        ttl: 7200,
-        rdata: "198.51.100.4",
+        name: "spektrix.pica.org.",
+        type: "CNAME",
+        ttl: 600,
+        rdata: "customers.spektrix.com.",
         comment: nil
       ))
     end
@@ -335,7 +301,7 @@ describe Zonesync::Route53 do
         ))
       end
 
-      it "changes a single TXT record normally" do
+      it "changes a single TXT record with UPSERT" do
         old_record = Zonesync::Record.new(
           name: "example.com.",
           type: "TXT",
@@ -352,9 +318,42 @@ describe Zonesync::Route53 do
           comment: nil
         )
 
-        # Should call remove and add with normal single record behavior
-        expect(subject).to receive(:remove).with(old_record)
-        expect(subject).to receive(:add).with(new_record)
+        allow(subject).to receive(:records).and_return([old_record])
+
+        stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+          .with(body: <<~XML)
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeBatch>
+                <Changes>
+                  <Change>
+                    <Action>UPSERT</Action>
+                    <ResourceRecordSet>
+                      <Name>example.com.</Name>
+                      <Type>TXT</Type>
+                      <TTL>3600</TTL>
+                      <ResourceRecords>
+                        <ResourceRecord>
+                          <Value>"v=spf1 include:spf.protection.outlook.com include:networkforgood.com -all"</Value>
+                        </ResourceRecord>
+                      </ResourceRecords>
+                    </ResourceRecordSet>
+                  </Change>
+                </Changes>
+              </ChangeBatch>
+            </ChangeResourceRecordSetsRequest>
+          XML
+          .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeInfo>
+                <Id>/change/C2682N5HXP0BZ4</Id>
+                <Status>PENDING</Status>
+                <SubmittedAt>2025-01-04T00:37:31.123Z</SubmittedAt>
+                <Comment>Change TXT record</Comment>
+              </ChangeInfo>
+            </ChangeResourceRecordSetsResponse>
+          XML
 
         subject.change(old_record, new_record)
       end
@@ -524,7 +523,7 @@ describe Zonesync::Route53 do
         ))
       end
 
-      it "handles changing one TXT record among multiple" do
+      it "handles changing one TXT record among multiple with UPSERT" do
         old_record = Zonesync::Record.new(
           name: "example.com.",
           type: "TXT",
@@ -541,7 +540,6 @@ describe Zonesync::Route53 do
           comment: nil
         )
 
-        # Mock existing records
         allow(subject).to receive(:records).and_return([
           Zonesync::Record.new(
             name: "example.com.",
@@ -560,9 +558,46 @@ describe Zonesync::Route53 do
           )
         ])
 
-        # Should call remove (which handles TXT grouping) and then add (which handles TXT grouping)
-        expect(subject).to receive(:remove).with(old_record)
-        expect(subject).to receive(:add).with(new_record)
+        stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+          .with(body: <<~XML)
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeBatch>
+                <Changes>
+                  <Change>
+                    <Action>UPSERT</Action>
+                    <ResourceRecordSet>
+                      <Name>example.com.</Name>
+                      <Type>TXT</Type>
+                      <TTL>3600</TTL>
+                      <ResourceRecords>
+                        <ResourceRecord>
+                          <Value>"MS=98F6AEAAA2E720DA0383C6253097E187749ED7B5"</Value>
+                        </ResourceRecord>
+                        <ResourceRecord>
+                          <Value>"google-site-verification=rL1dkEFaZtwNvLjL9XKbubgakru5aCxeNMw1xMRM40M"</Value>
+                        </ResourceRecord>
+                        <ResourceRecord>
+                          <Value>"v=spf1 include:spf.protection.outlook.com include:networkforgood.com -all"</Value>
+                        </ResourceRecord>
+                      </ResourceRecords>
+                    </ResourceRecordSet>
+                  </Change>
+                </Changes>
+              </ChangeBatch>
+            </ChangeResourceRecordSetsRequest>
+          XML
+          .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ChangeInfo>
+                <Id>/change/C2682N5HXP0BZ4</Id>
+                <Status>PENDING</Status>
+                <SubmittedAt>2025-01-04T00:37:31.123Z</SubmittedAt>
+                <Comment>Change TXT record</Comment>
+              </ChangeInfo>
+            </ChangeResourceRecordSetsResponse>
+          XML
 
         subject.change(old_record, new_record)
       end
