@@ -110,6 +110,22 @@ Zonesync.call(source: "Zonefile", destination: "zonesync", dry_run: true)
 Zonesync.generate(source: "zonesync", destination: "Zonefile")
 ```
 
+### Cloudflare proxy status
+
+When using the Cloudflare provider, you can control whether a record is proxied through Cloudflare's CDN by adding a `cf_tags` comment to the record in your zone file:
+
+```
+www    IN A     192.0.2.1 ; cf_tags=cf-proxied:true
+mail   IN A     192.0.2.2 ; cf_tags=cf-proxied:false
+api    IN A     192.0.2.3
+```
+
+- `cf_tags=cf-proxied:true` — enable Cloudflare proxy (orange cloud)
+- `cf_tags=cf-proxied:false` — explicitly disable proxy (grey cloud)
+- No `cf_tags` — don't touch the proxied setting (use Cloudflare's default)
+
+When generating a zone file with `zonesync generate`, proxied records will automatically include the `cf_tags=cf-proxied:true` tag in their comments.
+
 ### Managing or avoiding conflicts with other people making edits to the DNS records
 
 Zonesync writes two additional TXT records: `zonesync_manifest` and `zonesync_checksum`. These two records together try to handle the situation where someone else makes edits directly to the DNS records managed by zonesync.
