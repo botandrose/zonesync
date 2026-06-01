@@ -53,17 +53,7 @@ module Zonesync
 
     def conflicts_with?(other)
       return false unless name == other.name && type == other.type
-
-      case type
-      when "CNAME", "SOA"
-        true
-      when "MX"
-        existing_priority = rdata.split(' ').first
-        new_priority = other.rdata.split(' ').first
-        existing_priority == new_priority
-      else
-        false
-      end
+      Record.single_record_per_name?(type)
     end
 
     def self.single_record_per_name?(type)

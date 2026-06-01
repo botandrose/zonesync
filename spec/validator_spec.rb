@@ -89,8 +89,9 @@ describe Zonesync::Validator do
       zonesync_checksum TXT   "131e8dbd474ffba7c520c1a40830b1800e89a67c6c5c96e570016f5fc23e6074"
     RECORDS
 
-    it "raises ConflictError when adding record that conflicts with untracked record" do
-      # This record conflicts with the existing untracked MX 20 mail2.example.com.
+    it "does not raise ConflictError when adding MX with same priority as untracked MX" do
+      # Multiple MX records at the same priority is a normal DNS pattern
+      # (e.g. Google's alt1/alt2 both at priority 5), so this is not a conflict.
       new_record = Zonesync::Record.new(
         name: "example.com.",
         type: "MX",
@@ -102,7 +103,7 @@ describe Zonesync::Validator do
 
       expect {
         described_class.call(operations, destination, force: false)
-      }.to raise_error(Zonesync::ConflictError, /The following untracked DNS record already exists and would be overwritten/)
+      }.not_to raise_error
     end
 
     it "does not raise ConflictError when adding non-conflicting record" do
@@ -626,15 +627,16 @@ describe Zonesync::Validator do
       end
 
       context "MX record conflicts" do
-        it "should detect conflict when adding MX with same name and same priority as untracked MX" do
-          # Remote has: @ MX 10 mail.example.com (untracked)
-          # Local wants to add: @ MX 10 mail2.example.com
-          # Same priority = conflict
+        it "should not conflict when adding MX with same name and same priority as untracked MX" do
+          # Remote has: @ MX 5 alt1.aspmx.l.google.com. (untracked)
+          # Local wants to add: @ MX 5 alt2.aspmx.l.google.com.
+          # Same priority is NOT a conflict — multiple MX records at the same
+          # priority is a normal DNS pattern (e.g. Google's alt1/alt2/alt3/alt4).
           remote_zonefile = <<~RECORDS
             $ORIGIN example.com.
             $TTL 3600
             @                 A     192.0.2.1
-            @                 MX    10 mail.example.com.
+            @                 MX    5 alt1.aspmx.l.google.com.
             zonesync_manifest TXT   "1r81el0"
           RECORDS
           destination = Zonesync::Provider.from({ provider: "Memory", string: remote_zonefile })
@@ -643,7 +645,7 @@ describe Zonesync::Validator do
             $ORIGIN example.com.
             $TTL 3600
             @    A     192.0.2.1
-            @    MX    10 mail2.example.com.
+            @    MX    5 alt2.aspmx.l.google.com.
           RECORDS
           source = Zonesync::Provider.from({ provider: "Memory", string: local_zonefile })
 
@@ -651,11 +653,7 @@ describe Zonesync::Validator do
 
           expect {
             described_class.call(operations, destination, source, force: false)
-          }.to raise_error(Zonesync::ConflictError) do |error|
-            expect(error.message).to include("example.com.")
-            expect(error.message).to include("MX")
-            expect(error.message).to include("10 mail.example.com")
-          end
+          }.not_to raise_error
         end
 
         it "should not conflict when adding MX with same name but different priority than untracked MX" do
