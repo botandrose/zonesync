@@ -75,7 +75,7 @@ module Zonesync
         existing_records = records.select do |r|
           r.name == old_record.name && r.type == old_record.type
         end
-        (existing_records.reject { |r| r == old_record } + [new_record]).uniq
+        (existing_records.reject { |r| r.identical_to?(old_record) } + [new_record]).uniq
       end
 
       change_records("UPSERT", new_set)

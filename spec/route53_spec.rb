@@ -153,6 +153,63 @@ describe Zonesync::Route53 do
       subject.change(old_record, new_record)
     end
 
+    it "comments shouldn't be considered in the match" do
+      captured_old = Zonesync::Record.new(
+        name: "spf.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"v=spf1 -all"',
+        comment: "old comment"
+      )
+      fresh_existing = Zonesync::Record.new(
+        name: "spf.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"v=spf1 -all"',
+        comment: nil
+      )
+      new_record = Zonesync::Record.new(
+        name: "spf.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"v=spf1 include:mail.example.com -all"',
+        comment: nil
+      )
+      allow(subject).to receive(:records).and_return([fresh_existing])
+
+      stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: <<~XML)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <Change>
+                  <Action>UPSERT</Action>
+                  <ResourceRecordSet>
+                    <Name>spf.example.com.</Name>
+                    <Type>TXT</Type>
+                    <TTL>3600</TTL>
+                    <ResourceRecords>
+                      <ResourceRecord>
+                        <Value>"v=spf1 include:mail.example.com -all"</Value>
+                      </ResourceRecord>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+        .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeInfo><Id>/change/C2</Id><Status>PENDING</Status></ChangeInfo>
+          </ChangeResourceRecordSetsResponse>
+        XML
+
+      subject.change(captured_old, new_record)
+    end
+
     it "uses a single UPSERT for TTL-only changes" do
       allow(subject).to receive(:records).and_return([
         Zonesync::Record.new(name: "spektrix.pica.org.", type: "CNAME", ttl: 3600, rdata: "customers.spektrix.com.", comment: nil)
