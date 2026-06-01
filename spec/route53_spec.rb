@@ -92,6 +92,67 @@ describe Zonesync::Route53 do
   end
 
   describe "change" do
+    it "self-heals a zonesync_manifest RRset that has accumulated stale duplicate entries" do
+      # Past bugs or races could leave the manifest TXT RRset with more than
+      # one record. The captured old_record only matches one of them, so the
+      # generic reject-by-equality path would preserve the other(s) and the
+      # RRset would never converge to a singleton. change() must full-replace.
+      old_record = Zonesync::Record.new(
+        name: "zonesync_manifest.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"oldhash1,oldhash2"',
+        comment: nil
+      )
+      stale_duplicate = Zonesync::Record.new(
+        name: "zonesync_manifest.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"someotherhash"',
+        comment: nil
+      )
+      new_record = Zonesync::Record.new(
+        name: "zonesync_manifest.example.com.",
+        type: "TXT",
+        ttl: 3600,
+        rdata: '"newhash1,newhash2,newhash3"',
+        comment: nil
+      )
+      allow(subject).to receive(:records).and_return([old_record, stale_duplicate])
+
+      stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: <<~XML)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <Change>
+                  <Action>UPSERT</Action>
+                  <ResourceRecordSet>
+                    <Name>zonesync_manifest.example.com.</Name>
+                    <Type>TXT</Type>
+                    <TTL>3600</TTL>
+                    <ResourceRecords>
+                      <ResourceRecord>
+                        <Value>"newhash1,newhash2,newhash3"</Value>
+                      </ResourceRecord>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+        .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeInfo><Id>/change/C1</Id><Status>PENDING</Status></ChangeInfo>
+          </ChangeResourceRecordSetsResponse>
+        XML
+
+      subject.change(old_record, new_record)
+    end
+
     it "uses a single UPSERT for TTL-only changes" do
       allow(subject).to receive(:records).and_return([
         Zonesync::Record.new(name: "spektrix.pica.org.", type: "CNAME", ttl: 3600, rdata: "customers.spektrix.com.", comment: nil)

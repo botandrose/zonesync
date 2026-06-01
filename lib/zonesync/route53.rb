@@ -68,11 +68,16 @@ module Zonesync
     end
 
     def change(old_record, new_record)
-      existing_records = records.select do |r|
-        r.name == old_record.name && r.type == old_record.type
+      new_set = if old_record.manifest? || old_record.checksum?
+        # our metadata records are singletons, always replace
+        [new_record]
+      else
+        existing_records = records.select do |r|
+          r.name == old_record.name && r.type == old_record.type
+        end
+        (existing_records.reject { |r| r == old_record } + [new_record]).uniq
       end
 
-      new_set = (existing_records.reject { |r| r == old_record } + [new_record]).uniq
       change_records("UPSERT", new_set)
       invalidate_cache!
     end
