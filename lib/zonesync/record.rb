@@ -56,6 +56,11 @@ module Zonesync
       Record.single_record_per_name?(type)
     end
 
+    # A CNAME cannot coexist with any other data at its owner name.
+    def excludes?(other)
+      name == other.name && type != other.type && [type, other.type].include?("CNAME")
+    end
+
     def self.single_record_per_name?(type)
       type == "CNAME" || type == "SOA"
     end

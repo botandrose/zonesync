@@ -38,9 +38,10 @@ module Zonesync
         end
       end
 
-      operations.each do |method, records|
-        Logger.log(method, records, dry_run: dry_run)
-        destination.send(method, *records) unless dry_run
+      if dry_run
+        operations.each { |method, records| Logger.log(method, records, dry_run: true) }
+      else
+        destination.apply(operations) { |method, records| Logger.log(method, records) }
       end
     end
   end

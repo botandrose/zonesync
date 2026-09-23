@@ -23,6 +23,13 @@ module Zonesync
       operations
     end
 
+    def apply(operations)
+      operations.each do |method, records|
+        yield method, records
+        send(method, *records)
+      end
+    end
+
     def diff(other)
       Diff.new(
         from: diffable_records,

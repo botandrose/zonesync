@@ -33,38 +33,22 @@ module Zonesync
           *(remaining_records.any? ? [[remaining_records, "CREATE"]] : [])
         ]
 
-        http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
-          <?xml version="1.0" encoding="UTF-8"?>
-          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-            <ChangeBatch>
-              <Changes>
-                <%- grouped.each do |records_list, action| -%>
-                <%- records_grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] } -%>
-                <%- records_grouped.each do |(name, type, ttl), group_records| -%>
-                <Change>
-                  <Action><%= action %></Action>
-                  <ResourceRecordSet>
-                    <Name><%= name %></Name>
-                    <Type><%= type %></Type>
-                    <TTL><%= ttl %></TTL>
-                    <ResourceRecords>
-                      <%- group_records.each do |group_record| -%>
-                      <ResourceRecord>
-                        <Value><%= rdata_for_api(group_record) %></Value>
-                      </ResourceRecord>
-                      <%- end -%>
-                    </ResourceRecords>
-                  </ResourceRecordSet>
-                </Change>
-                <%- end -%>
-                <%- end -%>
-              </Changes>
-            </ChangeBatch>
-          </ChangeResourceRecordSetsRequest>
-        XML
+        post_changes(grouped)
 
         invalidate_cache!
       end
+    end
+
+    def apply(operations, &block)
+      names = type_change_names(operations)
+      batched, rest = operations.partition do |method, (record)|
+        method != :change && names.include?(record.name)
+      end
+      batched.group_by { |_, (record)| record.name }.each do |name, ops|
+        ops.each(&block)
+        replace_at_name(name, ops)
+      end
+      super(rest, &block)
     end
 
     def change(old_record, new_record)
@@ -109,6 +93,61 @@ module Zonesync
     def invalidate_cache!
       @read = nil
       @zonefile = nil
+    end
+
+    def type_change_names(operations)
+      removed = operations.filter_map { |method, (record)| record if method == :remove }
+      added = operations.filter_map { |method, (record)| record if method == :add }
+      added.select { |a| removed.any? { |r| r.excludes?(a) } }.map(&:name).uniq
+    end
+
+    def replace_at_name(name, ops)
+      removed = ops.filter_map { |method, (record)| record if method == :remove }
+      added = ops.filter_map { |method, (record)| record if method == :add }
+
+      deletes, creates = [], []
+      (removed + added).map(&:type).uniq.each do |type|
+        before = records.select { |r| r.name == name && r.type == type }
+        after = before.reject { |r| removed.any? { |x| x.identical_to?(r) } }
+        after += added.select { |r| r.type == type && after.none? { |x| x.identical_to?(r) } }
+        deletes.concat(before)
+        creates.concat(after)
+      end
+
+      post_changes([[deletes, "DELETE"], [creates, "CREATE"]])
+      invalidate_cache!
+    end
+
+    def post_changes(grouped)
+      http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
+        <?xml version="1.0" encoding="UTF-8"?>
+        <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+          <ChangeBatch>
+            <Changes>
+              <%- grouped.each do |records_list, action| -%>
+              <%- records_grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] } -%>
+              <%- records_grouped.each do |(name, type, ttl), group_records| -%>
+              <Change>
+                <Action><%= action %></Action>
+                <ResourceRecordSet>
+                  <Name><%= name %></Name>
+                  <Type><%= type %></Type>
+                  <TTL><%= ttl %></TTL>
+                  <ResourceRecords>
+                    <%- group_records.each do |group_record| -%>
+                    <ResourceRecord>
+                      <Value><%= rdata_for_api(group_record) %></Value>
+                    </ResourceRecord>
+                    <%- end -%>
+                  </ResourceRecords>
+                </ResourceRecordSet>
+              </Change>
+              <%- end -%>
+              <%- end -%>
+            </Changes>
+          </ChangeBatch>
+        </ChangeResourceRecordSetsRequest>
+      XML
     end
 
     def change_record(action, record)

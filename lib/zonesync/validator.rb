@@ -89,6 +89,8 @@ module Zonesync
     end
 
     def validate_addition(record, force: false)
+      excluded_record = find_excluded_record(record)
+      return [excluded_record, record] if excluded_record
       return nil if manifest.matches?(record)
       return nil if force
 
@@ -104,6 +106,13 @@ module Zonesync
       return nil if !conflicting_record
       return nil if conflicting_record == record
       [conflicting_record, record]
+    end
+
+    def find_excluded_record(record)
+      removed = operations.filter_map { |method, (r)| r if method == :remove }
+      destination.records.find do |r|
+        r.excludes?(record) && removed.none? { |x| x.identical_to?(r) }
+      end
     end
 
     def find_v2_conflict(record, expected_hashes)

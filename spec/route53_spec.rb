@@ -755,5 +755,66 @@ describe Zonesync::Route53 do
       end
     end
   end
+
+  describe "apply" do
+    it "changes a record's type at one name with a single batch that deletes before creating" do
+      cname = Zonesync::Record.new(name: "ctm-api.example.com.", type: "CNAME", ttl: 300, rdata: "d1uj4th7l3tvms.cloudfront.net.", comment: nil)
+      a = Zonesync::Record.new(name: "ctm-api.example.com.", type: "A", ttl: 1800, rdata: "3.83.71.52", comment: nil)
+      allow(subject).to receive(:records).and_return([cname])
+
+      request = stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: <<~XML)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <Change>
+                  <Action>DELETE</Action>
+                  <ResourceRecordSet>
+                    <Name>ctm-api.example.com.</Name>
+                    <Type>CNAME</Type>
+                    <TTL>300</TTL>
+                    <ResourceRecords>
+                      <ResourceRecord>
+                        <Value>d1uj4th7l3tvms.cloudfront.net.</Value>
+                      </ResourceRecord>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+                <Change>
+                  <Action>CREATE</Action>
+                  <ResourceRecordSet>
+                    <Name>ctm-api.example.com.</Name>
+                    <Type>A</Type>
+                    <TTL>1800</TTL>
+                    <ResourceRecords>
+                      <ResourceRecord>
+                        <Value>3.83.71.52</Value>
+                      </ResourceRecord>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+        .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeInfo>
+              <Id>/change/C2682N5HXP0BZ4</Id>
+              <Status>PENDING</Status>
+              <SubmittedAt>2025-01-04T00:37:31.123Z</SubmittedAt>
+            </ChangeInfo>
+          </ChangeResourceRecordSetsResponse>
+        XML
+
+      logged = []
+      subject.apply([[:remove, [cname]], [:add, [a]]]) { |method, records| logged << [method, records] }
+
+      expect(request).to have_been_made.once
+      expect(logged).to eq([[:remove, [cname]], [:add, [a]]])
+    end
+  end
 end
 
