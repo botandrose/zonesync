@@ -314,6 +314,22 @@ describe Zonesync::Route53 do
       ))
     end
 
+    it "sends CAA records with flags, tag and quoted value" do
+      allow(subject).to receive(:records).and_return([])
+
+      stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: /<Type>CAA<\/Type>\s*<TTL>3600<\/TTL>\s*<ResourceRecords>\s*<ResourceRecord>\s*<Value>0 issue "amazon.com"<\/Value>/)
+        .to_return(status: 200, body: "<ChangeResourceRecordSetsResponse/>", headers: { "Content-Type" => "application/xml" })
+
+      subject.add(Zonesync::Record.new(
+        name: "example.com.",
+        type: "CAA",
+        ttl: 3600,
+        rdata: '0 issue "amazon.com"',
+        comment: nil
+      ))
+    end
+
     context "with single TXT records" do
       it "adds a single TXT record normally" do
         # Mock no existing TXT records with the same name

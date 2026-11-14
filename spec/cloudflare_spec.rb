@@ -179,5 +179,44 @@ describe Zonesync::Cloudflare do
         comment: "Domain verification record",
       ))
     end
+
+    it "sends CAA records as structured data" do
+      stub_request(:post, "https://api.cloudflare.com/client/v4/zones/1234/dns_records")
+        .with(body: JSON.dump({
+          "name": "example.com.",
+          "type": "CAA",
+          "ttl": 3600,
+          "data": { "flags": 0, "tag": "issue", "value": "letsencrypt.org" },
+          "comment": nil,
+        }))
+        .to_return(status: 200, body: '{"result":{},"success":true}', headers: { "Content-Type" => "application/json" })
+
+      subject.add(Zonesync::Record.new(
+        name: "example.com.",
+        type: "CAA",
+        ttl: 3600,
+        rdata: '0 issue "letsencrypt.org"',
+        comment: nil,
+      ))
+    end
+  end
+
+  describe "all" do
+    it "reads CAA records from their structured data" do
+      stub_request(:get, "https://api.cloudflare.com/client/v4/zones/1234/dns_records")
+        .to_return(status: 200, body: JSON.dump({
+          "result": [{
+            "id": "9012",
+            "name": "example.com",
+            "type": "CAA",
+            "ttl": 3600,
+            "content": "0 issue letsencrypt.org",
+            "data": { "flags": 0, "tag": "issue", "value": "letsencrypt.org" },
+          }],
+          "success": true,
+        }), headers: { "Content-Type" => "application/json" })
+
+      expect(subject.all.keys.map(&:to_s)).to eq(['example.com. 3600 CAA 0 issue "letsencrypt.org"'])
+    end
   end
 end

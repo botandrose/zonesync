@@ -171,6 +171,10 @@ module Zonesync
           self.comment = zonefile_record.comment&.to_s
         end
       end
+
+      def rdata
+        %(#{flags} #{tag} "#{value.delete_prefix('"').delete_suffix('"')}")
+      end
     end
 
     class CNAME < Record

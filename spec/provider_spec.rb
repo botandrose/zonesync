@@ -46,6 +46,22 @@ describe Zonesync::Provider do
         ])
       end
     end
+
+    context "with CAA records" do
+      subject { described_class.from({ provider: "Memory", string: <<~RECORDS }) }
+        $ORIGIN example.com.
+        $TTL 3600
+        @  CAA  0 issue "amazon.com"
+        @  CAA  128 issuewild letsencrypt.org
+      RECORDS
+
+      it "keeps flags, tag and quoted value as the record data" do
+        expect(subject.diffable_records.map(&:to_s)).to eq([
+          "example.com. 3600 CAA 0 issue \"amazon.com\"",
+          "example.com. 3600 CAA 128 issuewild \"letsencrypt.org\"",
+        ])
+      end
+    end
   end
 
   context "#diffable_records with hash-based manifests" do

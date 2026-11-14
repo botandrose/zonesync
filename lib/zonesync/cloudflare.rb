@@ -71,6 +71,9 @@ module Zonesync
         priority, hostname = content.split(" ", 2)
         hash[:priority] = priority.to_i
         hash[:content] = hostname.sub(/\.$/, "") # remove trailing dot
+      elsif record.type == "CAA"
+        flags, tag, value = content.split(" ", 3)
+        hash[:data] = { flags: flags.to_i, tag: tag, value: value.delete_prefix('"').delete_suffix('"') }
       else
         hash[:content] = content
       end
@@ -90,6 +93,10 @@ module Zonesync
       end
       if %w[TXT SPF NAPTR].include?(attrs["type"])
         rdata = normalize_quoting(rdata)
+      end
+      if attrs["type"] == "CAA"
+        data = attrs["data"]
+        rdata = %(#{data["flags"]} #{data["tag"]} "#{data["value"]}")
       end
 
       record = Record.new(
