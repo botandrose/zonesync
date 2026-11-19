@@ -48,6 +48,8 @@ module Zonesync
       zonefile.records
     end
 
+    def excludes?(existing, added) = existing.excludes?(added)
+
     def diffable_records
       records.select do |record|
         manifest.diffable?(record)

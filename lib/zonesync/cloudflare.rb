@@ -19,6 +19,13 @@ module Zonesync
       )
     end
 
+    # Cloudflare flattens a CNAME at the apex, so it can sit beside the apex's other records
+    def excludes?(existing, added)
+      apex = records.find { |r| r.type == "SOA" }.name
+      return false if [existing, added].any? { |r| r.type == "CNAME" && r.name == apex }
+      super
+    end
+
     def remove(record)
       id = find_record_id(record)
       http.delete("/#{id}")

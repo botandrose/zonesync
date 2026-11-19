@@ -111,7 +111,7 @@ module Zonesync
     def find_excluded_record(record)
       removed = operations.filter_map { |method, (r)| r if method == :remove }
       destination.records.find do |r|
-        r.excludes?(record) && removed.none? { |x| x.identical_to?(r) }
+        destination.excludes?(r, record) && removed.none? { |x| x.identical_to?(r) }
       end
     end
 
