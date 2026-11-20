@@ -98,8 +98,8 @@ grammar Zonefile
 
   rule a_record
     (
-     host space ms_age ttl klass "A" space ip_address /
-     host space ms_age klass ttl "A" space ip_address
+     host space ms_age ttl klass "A" space ip_address:(fqdn / ip_address) /
+     host space ms_age klass ttl "A" space ip_address:(fqdn / ip_address)
     ) {
       def to_s
         "#{host} #{ms_age} #{ttl} #{klass} A #{ip_address}"
@@ -121,8 +121,8 @@ grammar Zonefile
   
   rule aaaa_record
     (
-     host space ms_age ttl klass "AAAA" space ip_address:ip6_address /
-     host space ms_age klass ttl "AAAA" space ip_address:ip6_address
+     host space ms_age ttl klass "AAAA" space ip_address:(fqdn / ip6_address) /
+     host space ms_age klass ttl "AAAA" space ip_address:(fqdn / ip6_address)
     ) {
       def to_s
         "#{host} #{ttl} #{klass} AAAA #{ip_address}"
@@ -134,6 +134,14 @@ grammar Zonefile
     }
   end
   
+  rule fqdn
+    '[a-zA-Z0-9\-_]+(\.[a-zA-Z0-9\-_]+)*\.(?![a-zA-Z0-9\-_])'r {
+      def to_s
+        text_value
+      end
+    }
+  end
+
   rule ip6_address
     [\da-fA-F:.] 2..39 {
       def to_s

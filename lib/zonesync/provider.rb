@@ -17,8 +17,10 @@ module Zonesync
       Zonesync.const_get(config.fetch(:provider)).new(config)
     end
 
-    # The source as this provider would hold it
+    # The source as this provider would hold it; only a provider that gives meaning to an A or AAAA naming a host may accept one
     def interpret(source)
+      named = source.records.find { |record| %w[A AAAA].include?(record.type) && record.rdata.end_with?(".") }
+      raise UnsupportedRecordError.new(named, "#{self.class.name.split("::").last} can't hold an A or AAAA record that names a host instead of an address") if named
       source
     end
 

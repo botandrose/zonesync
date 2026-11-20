@@ -114,6 +114,20 @@ module Zonesync
     end
   end
 
+  class UnsupportedRecordError < StandardError
+    def initialize(record, reason)
+      @record = record
+      @reason = reason
+    end
+
+    def message
+      <<~MSG.chomp
+        #{@reason}:
+          #{@record}
+      MSG
+    end
+  end
+
   class DuplicateRecordError < StandardError
     def initialize(record, provider_message = nil)
       @record = record

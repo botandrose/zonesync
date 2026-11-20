@@ -13,7 +13,7 @@ module Zonesync
     def sync
       kwargs = options.to_hash.transform_keys(&:to_sym)
       Zonesync.call(**kwargs)
-    rescue ConflictError, MissingManifestError, ChecksumMismatchError => e
+    rescue ConflictError, MissingManifestError, ChecksumMismatchError, UnsupportedRecordError => e
       puts e.message
       exit 1
     end
