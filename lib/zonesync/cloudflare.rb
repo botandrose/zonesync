@@ -51,6 +51,9 @@ module Zonesync
           # Convert CloudFlare-specific duplicate error to standard exception
           if e.message.include?('"code":81058') && e.message.include?("An identical record already exists")
             raise DuplicateRecordError.new(record, "CloudFlare error 81058")
+          # Cloudflare reports an identical CNAME as 81053, the same as a conflicting A/AAAA/CNAME
+          elsif e.message.include?('"code":81053') && all.keys.any? { |existing| existing.identical_to?(record) }
+            raise DuplicateRecordError.new(record, "CloudFlare error 81053")
           else
             # Re-raise other errors
             raise

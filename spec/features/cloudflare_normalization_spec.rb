@@ -308,6 +308,41 @@ describe Zonesync::Cloudflare do
       expect { cloudflare.add(mx_record) }.not_to raise_error
     end
 
+    context "when Cloudflare refuses a CNAME because its host already has a record (81053)" do
+      let(:error_response) { '{"result":null,"success":false,"errors":[{"code":81053,"message":"An A, AAAA, or CNAME record with that host already exists. For more details, refer to <https://developers.cloudflare.com/dns/manage-dns-records/troubleshooting/records-with-same-name/>."}],"messages":[]}' }
+
+      let(:cname_record) do
+        Zonesync::Record.new(
+          name: "app.example.com.",
+          type: "CNAME",
+          ttl: 1,
+          rdata: "abc123.cfargotunnel.com.",
+          comment: "cf_tags=cf-proxied:true"
+        )
+      end
+
+      def cloudflare_with_live(live_record)
+        http_client = double("HTTP")
+        allow(http_client).to receive(:post).with("", anything).and_raise(RuntimeError.new(error_response))
+        allow(http_client).to receive(:get).with("").and_return({ "result" => [live_record] })
+        cloudflare = described_class.new({})
+        allow(cloudflare).to receive(:http).and_return(http_client)
+        cloudflare
+      end
+
+      it "starts tracking the record when the live one is identical" do
+        cloudflare = cloudflare_with_live({ "id" => "1", "name" => "app.example.com", "type" => "CNAME", "content" => "abc123.cfargotunnel.com", "ttl" => 1, "proxied" => true, "comment" => nil })
+
+        expect { cloudflare.add(cname_record) }.to output(/Record already exists in .*Cloudflare: app.example.com. CNAME/).to_stdout
+      end
+
+      it "still raises when the live record differs" do
+        cloudflare = cloudflare_with_live({ "id" => "1", "name" => "app.example.com", "type" => "A", "content" => "192.0.2.1", "ttl" => 1, "proxied" => true, "comment" => nil })
+
+        expect { cloudflare.add(cname_record) }.to raise_error(RuntimeError, /81053/)
+      end
+    end
+
     it "still raises other CloudFlare API errors" do
       # Mock HTTP client that raises a different error
       http_client = double("HTTP")
