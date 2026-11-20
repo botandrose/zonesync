@@ -121,7 +121,7 @@ module Zonesync
         next if expected_hashes.include?(RecordHash.generate(r))
         next if r.identical_to?(record)
 
-        r.conflicts_with?(record)
+        r.conflicts_with?(record) || record.conflicts_with?(r)
       end
     end
 
