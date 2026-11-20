@@ -39,6 +39,95 @@ describe Zonesync::Route53 do
 
       expect(subject.read).to eq("example.com. 3600 A 198.51.100.4\n")
     end
+    it "reads an alias as one record per RRset, keeping a hosted zone it can't infer and target health" do
+      stub_request(:get, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .to_return(status: 200, body: <<~XML, headers: { "Content-Type" => "application/xml" })
+          <?xml version="1.0"?>
+          <ListResourceRecordSetsResponse xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+              <ResourceRecordSets>
+                  <ResourceRecordSet>
+                      <Name>example.com.</Name>
+                      <Type>SOA</Type>
+                      <TTL>900</TTL>
+                      <ResourceRecords>
+                          <ResourceRecord>
+                              <Value>ns-1.awsdns-01.org. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400</Value>
+                          </ResourceRecord>
+                      </ResourceRecords>
+                  </ResourceRecordSet>
+                  <ResourceRecordSet>
+                      <Name>example.com.</Name>
+                      <Type>A</Type>
+                      <AliasTarget>
+                          <HostedZoneId>Z35SXDOTRQ7X7K</HostedZoneId>
+                          <DNSName>dualstack.My-LB-123.us-east-1.elb.amazonaws.com</DNSName>
+                          <EvaluateTargetHealth>true</EvaluateTargetHealth>
+                      </AliasTarget>
+                  </ResourceRecordSet>
+              </ResourceRecordSets>
+          </ListResourceRecordSetsResponse>
+        XML
+
+      expect(subject.read.lines).to include("example.com. A dualstack.my-lb-123.us-east-1.elb.amazonaws.com. ; route53-alias=Z35SXDOTRQ7X7K,evaluate-target-health\n")
+
+      zonefile = Zonesync::Provider.from({ provider: "Memory", string: <<~ZONEFILE })
+        $ORIGIN example.com.
+        $TTL 3600
+        @ 600 A DualStack.My-LB-123.us-east-1.elb.amazonaws.com. ; route53-alias=Z35SXDOTRQ7X7K,evaluate-target-health
+      ZONEFILE
+      aliases = subject.records.grep(Zonesync::Route53::AliasRecord)
+      expect(aliases.map(&:hosted_zone_id)).to eq(["Z35SXDOTRQ7X7K"])
+      expect(aliases.map(&:evaluate_target_health)).to eq([true])
+      expect(subject.interpret(zonefile).records.grep(Zonesync::Route53::AliasRecord)).to eq(aliases)
+    end
+  end
+
+  describe "interpret" do
+    def interpret(line)
+      zonefile = Zonesync::Provider.from({ provider: "Memory", string: "$ORIGIN example.com.\n$TTL 3600\n#{line}\n" })
+      subject.interpret(zonefile).records.reject { |record| record.type == "SOA" }
+    end
+
+    it "reads a tagged CloudFront target as an alias with no TTL" do
+      expect(interpret("@ 600 A d111abcdef8.cloudfront.net. ; route53-alias")).to eq([
+        Zonesync::Route53::AliasRecord.build(name: "example.com.", type: "A", dns_name: "d111abcdef8.cloudfront.net.", hosted_zone_id: "Z2FDTNDATAQYW2", evaluate_target_health: false),
+      ])
+    end
+
+    it "hashes an alias the same whatever TTL its Zonefile line carries" do
+      hashes = ["@ A d111abcdef8.cloudfront.net. ; route53-alias", "@ 600 A d111abcdef8.cloudfront.net. ; route53-alias"].map do |line|
+        Zonesync::RecordHash.generate(interpret(line).first)
+      end
+      expect(hashes.uniq).to eq([Zlib.crc32("example.com.:A::d111abcdef8.cloudfront.net.").to_s(36)])
+    end
+
+    it "leaves other records alone" do
+      expect(interpret("@ A 192.0.2.1 ; a comment").map(&:class)).to eq([Zonesync::Record])
+    end
+
+    it "refuses an alias whose hosted zone it can't infer" do
+      expect {
+        interpret("@ A my-lb-123.us-east-1.elb.amazonaws.com. ; route53-alias")
+      }.to raise_error(Zonesync::UnsupportedRecordError, /state this target's with route53-alias=<HostedZoneId>/)
+    end
+
+    it "refuses an A record that names a target without a route53-alias tag" do
+      expect {
+        interpret("@ A d111abcdef8.cloudfront.net.")
+      }.to raise_error(Zonesync::UnsupportedRecordError, /only as an alias, tagged route53-alias/)
+    end
+
+    it "refuses a route53-alias tag on a record that holds an address" do
+      expect {
+        interpret("@ A 192.0.2.1 ; route53-alias")
+      }.to raise_error(Zonesync::UnsupportedRecordError, /route53-alias only applies to an A or AAAA record whose target is a fully qualified name/)
+    end
+
+    it "refuses an alias alongside another record of its name and type" do
+      expect {
+        interpret("@ A d111abcdef8.cloudfront.net. ; route53-alias\n@ A 192.0.2.1")
+      }.to raise_error(Zonesync::UnsupportedRecordError, /Route53 holds an alias as the only record of its name and type/)
+    end
   end
 
   describe "remove" do
@@ -88,6 +177,38 @@ describe Zonesync::Route53 do
         rdata: "198.51.100.4",
         comment: nil,
       ))
+    end
+    it "deletes an alias with its exact target" do
+      alias_record = Zonesync::Route53::AliasRecord.build(name: "example.com.", type: "AAAA", dns_name: "dualstack.my-lb-123.us-east-1.elb.amazonaws.com.", hosted_zone_id: "Z35SXDOTRQ7X7K", evaluate_target_health: true)
+      allow(subject).to receive(:records).and_return([alias_record])
+
+      request = stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: <<~XML)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <Change>
+                  <Action>DELETE</Action>
+                  <ResourceRecordSet>
+                    <Name>example.com.</Name>
+                    <Type>AAAA</Type>
+                    <AliasTarget>
+                      <HostedZoneId>Z35SXDOTRQ7X7K</HostedZoneId>
+                      <DNSName>dualstack.my-lb-123.us-east-1.elb.amazonaws.com.</DNSName>
+                      <EvaluateTargetHealth>true</EvaluateTargetHealth>
+                    </AliasTarget>
+                  </ResourceRecordSet>
+                </Change>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+        .to_return(status: 200, body: "<ChangeResourceRecordSetsResponse/>", headers: { "Content-Type" => "application/xml" })
+
+      subject.remove(alias_record)
+
+      expect(request).to have_been_made.once
     end
   end
 
@@ -329,6 +450,7 @@ describe Zonesync::Route53 do
         comment: nil
       ))
     end
+
 
     context "with single TXT records" do
       it "adds a single TXT record normally" do
@@ -830,6 +952,53 @@ describe Zonesync::Route53 do
 
       expect(request).to have_been_made.once
       expect(logged).to eq([[:remove, [cname]], [:add, [a]]])
+    end
+
+    it "changes a CNAME into an alias at one name with a single batch" do
+      cname = Zonesync::Record.new(name: "www.example.com.", type: "CNAME", ttl: 300, rdata: "example.com.", comment: nil)
+      alias_record = Zonesync::Route53::AliasRecord.build(name: "www.example.com.", type: "A", dns_name: "d111abcdef8.cloudfront.net.", hosted_zone_id: "Z2FDTNDATAQYW2", evaluate_target_health: false)
+      allow(subject).to receive(:records).and_return([cname])
+
+      request = stub_request(:post, "https://route53.amazonaws.com/2013-04-01/hostedzone/Z3P5QSUBK4POTI/rrset")
+        .with(body: <<~XML)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
+            <ChangeBatch>
+              <Changes>
+                <Change>
+                  <Action>DELETE</Action>
+                  <ResourceRecordSet>
+                    <Name>www.example.com.</Name>
+                    <Type>CNAME</Type>
+                    <TTL>300</TTL>
+                    <ResourceRecords>
+                      <ResourceRecord>
+                        <Value>example.com.</Value>
+                      </ResourceRecord>
+                    </ResourceRecords>
+                  </ResourceRecordSet>
+                </Change>
+                <Change>
+                  <Action>CREATE</Action>
+                  <ResourceRecordSet>
+                    <Name>www.example.com.</Name>
+                    <Type>A</Type>
+                    <AliasTarget>
+                      <HostedZoneId>Z2FDTNDATAQYW2</HostedZoneId>
+                      <DNSName>d111abcdef8.cloudfront.net.</DNSName>
+                      <EvaluateTargetHealth>false</EvaluateTargetHealth>
+                    </AliasTarget>
+                  </ResourceRecordSet>
+                </Change>
+              </Changes>
+            </ChangeBatch>
+          </ChangeResourceRecordSetsRequest>
+        XML
+        .to_return(status: 200, body: "<ChangeResourceRecordSetsResponse/>", headers: { "Content-Type" => "application/xml" })
+
+      subject.apply([[:remove, [cname]], [:add, [alias_record]]]) { }
+
+      expect(request).to have_been_made.once
     end
   end
 end

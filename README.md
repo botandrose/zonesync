@@ -126,6 +126,22 @@ api    IN A     192.0.2.3
 
 When generating a zone file with `zonesync generate`, proxied records will automatically include the `cf_tags=cf-proxied:true` tag in their comments.
 
+### Route53 alias records
+
+When using the Route53 provider, an A or AAAA record can be an alias to another AWS resource. Write its target as a fully qualified name and tag it with a `route53-alias` comment:
+
+```
+@      A     d111abcdef8.cloudfront.net. ; route53-alias
+@      AAAA  d111abcdef8.cloudfront.net. ; route53-alias
+api    A     dualstack.my-lb-123.us-east-1.elb.amazonaws.com. ; route53-alias=Z35SXDOTRQ7X7K,evaluate-target-health
+```
+
+- `route53-alias` — CloudFront targets need nothing more, since their hosted zone is always `Z2FDTNDATAQYW2`
+- `route53-alias=<HostedZoneId>` — the alias hosted zone of any other target
+- `,evaluate-target-health` — have Route53 check the target's health
+
+Route53 serves an alias with its target's TTL, so any TTL on the line is ignored. Other DNS providers can't hold an A or AAAA record that names a host, and refuse to sync one.
+
 ### Managing or avoiding conflicts with other people making edits to the DNS records
 
 Zonesync writes two additional TXT records: `zonesync_manifest` and `zonesync_checksum`. These two records together try to handle the situation where someone else makes edits directly to the DNS records managed by zonesync.

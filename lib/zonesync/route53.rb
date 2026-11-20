@@ -2,6 +2,8 @@
 
 require "zonesync/record"
 require "zonesync/http"
+require "zonesync/route53/alias_record"
+require "zonesync/route53/source"
 require "rexml/document"
 require "erb"
 
@@ -15,6 +17,14 @@ module Zonesync
         end.flatten.sort
         records.map(&:to_s).join("\n") + "\n"
       end
+    end
+
+    def interpret(source)
+      Source.new(source)
+    end
+
+    def records
+      AliasRecord.adopt(super)
     end
 
     def remove(record)
@@ -132,6 +142,13 @@ module Zonesync
                 <ResourceRecordSet>
                   <Name><%= name %></Name>
                   <Type><%= type %></Type>
+                  <%- if (alias_record = AliasRecord.of(records_list.select { |r| r.name == name && r.type == type })) -%>
+                  <AliasTarget>
+                    <HostedZoneId><%= alias_record.hosted_zone_id %></HostedZoneId>
+                    <DNSName><%= alias_record.rdata %></DNSName>
+                    <EvaluateTargetHealth><%= alias_record.evaluate_target_health %></EvaluateTargetHealth>
+                  </AliasTarget>
+                  <%- else -%>
                   <TTL><%= ttl %></TTL>
                   <ResourceRecords>
                     <%- group_records.each do |group_record| -%>
@@ -140,6 +157,7 @@ module Zonesync
                     </ResourceRecord>
                     <%- end -%>
                   </ResourceRecords>
+                  <%- end -%>
                 </ResourceRecordSet>
               </Change>
               <%- end -%>
@@ -151,61 +169,13 @@ module Zonesync
     end
 
     def change_record(action, record)
-      http.post("", <<~XML)
-        <?xml version="1.0" encoding="UTF-8"?>
-        <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-          <ChangeBatch>
-            <Changes>
-              <Change>
-                <Action>#{action}</Action>
-                <ResourceRecordSet>
-                  <Name>#{record.name}</Name>
-                  <Type>#{record.type}</Type>
-                  <TTL>#{record.ttl}</TTL>
-                  <ResourceRecords>
-                    <ResourceRecord>
-                      <Value>#{rdata_for_api(record)}</Value>
-                    </ResourceRecord>
-                  </ResourceRecords>
-                </ResourceRecordSet>
-              </Change>
-            </Changes>
-          </ChangeBatch>
-        </ChangeResourceRecordSetsRequest>
-      XML
+      post_changes([[[record], action]])
     end
 
     def change_records(action, records_list)
-      # Group records by name and type to handle multiple values
-      grouped = records_list.group_by { |r| [r.name, r.type, r.ttl] }
-
-      http.post("", ERB.new(<<~XML, trim_mode: "-").result(binding))
-        <?xml version="1.0" encoding="UTF-8"?>
-        <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
-          <ChangeBatch>
-            <Changes>
-              <%- grouped.each do |(name, type, ttl), records| -%>
-              <Change>
-                <Action><%= action %></Action>
-                <ResourceRecordSet>
-                  <Name><%= name %></Name>
-                  <Type><%= type %></Type>
-                  <TTL><%= ttl %></TTL>
-                  <ResourceRecords>
-                    <%- records.each do |record| -%>
-                    <ResourceRecord>
-                      <Value><%= rdata_for_api(record) %></Value>
-                    </ResourceRecord>
-                    <%- end -%>
-                  </ResourceRecords>
-                </ResourceRecordSet>
-              </Change>
-              <%- end -%>
-            </Changes>
-          </ChangeBatch>
-        </ChangeResourceRecordSetsRequest>
-      XML
+      post_changes([[records_list, action]])
     end
+
 
     def rdata_for_api(record)
       return record.rdata unless record.type == "TXT"
@@ -218,9 +188,21 @@ module Zonesync
     end
 
     def to_records(el)
+      name = normalize_trailing_period(get_value(el, "Name"))
+      type = get_value(el, "Type")
+
+      alias_target = el.elements["AliasTarget"]
+      if alias_target && %w[A AAAA].include?(type)
+        return [AliasRecord.build(
+          name: name,
+          type: type,
+          dns_name: normalize_trailing_period(get_value(alias_target, "DNSName")).downcase,
+          hosted_zone_id: get_value(alias_target, "HostedZoneId"),
+          evaluate_target_health: get_value(alias_target, "EvaluateTargetHealth") == "true",
+        )]
+      end
+
       el.elements.collect("ResourceRecords/ResourceRecord") do |rr|
-        name = normalize_trailing_period(get_value(el, "Name"))
-        type = get_value(el, "Type")
         ttl = get_value(el, "TTL")
         rdata = get_value(rr, "Value")
         rdata = normalize_txt_rdata(rdata) if type == "TXT"
