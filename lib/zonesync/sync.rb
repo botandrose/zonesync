@@ -5,6 +5,7 @@ require "zonesync/logger"
 module Zonesync
   Sync = Struct.new(:source, :destination) do
     def call(dry_run: false, force: false)
+      source = destination.interpret(self.source)
       operations = destination.diff!(source, force: force)
 
       smanifest = source.manifest.generate

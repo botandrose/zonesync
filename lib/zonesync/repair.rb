@@ -3,7 +3,7 @@
 module Zonesync
   class Repair
     def initialize(local, remote)
-      @local = local
+      @local = remote.interpret(local)
       @remote = remote
       @remote_config = remote.config
     end
@@ -161,8 +161,8 @@ module Zonesync
 
     def update_manifest(output)
       # Re-read both providers to get the updated records
-      updated_local = Provider.from({ provider: "Filesystem", path: @local.config.fetch(:path) })
       updated_remote = Provider.from(@remote_config)
+      updated_local = updated_remote.interpret(Provider.from({ provider: "Filesystem", path: @local.config.fetch(:path) }))
 
       # Generate new manifest based on current local state
       new_manifest = updated_local.manifest.generate

@@ -17,6 +17,11 @@ module Zonesync
       Zonesync.const_get(config.fetch(:provider)).new(config)
     end
 
+    # The source as this provider would hold it
+    def interpret(source)
+      source
+    end
+
     def diff!(other, force: false)
       operations = diff(other).call
       Validator.call(operations, self, other, force: force)
